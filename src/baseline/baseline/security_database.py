@@ -1,10 +1,10 @@
-# file to handle reading the csv files and get price information
+# file to handle reading the csv files and get price information for a ticker on a day
 import heapq
 import pandas as pd
 
 
 class SecurityDatabase:
-    def __init__(self, ticker: str, fy: str):
+    def __init__(self, ticker: str, fy: int):
         print(f"reading csv: {ticker} for financial year {fy}")
 
     def query(self, day: str):
