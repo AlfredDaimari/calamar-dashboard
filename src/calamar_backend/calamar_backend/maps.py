@@ -17,7 +17,7 @@ class TickerMap:
                 self.map = yaml.safe_load(file)
         else:
             raise Exception(
-                f"{str(datetime.datetime.now())}: environment variable 'YF_MAP_FILE' not set"
+                f"{str(datetime.datetime.now())}: environment variable 'TICKER_MAP' not set"
             )
 
     def get(self, ticker: str) -> str:
