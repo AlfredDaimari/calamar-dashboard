@@ -1,7 +1,7 @@
 """
 Database utils functions:
     Create:
-    - create index table
+    - create index table 
     - create bank statement table
     - create index nav table
     - create trade_report table
@@ -17,6 +17,7 @@ import pandas as pd
 import sqlite3
 import os
 import datetime
+import typing
 from calamar_backend.price import get_price as yf_get_price
 from calamar_backend.maps import TickerMap
 
@@ -60,9 +61,25 @@ class Database:
             raise Exception(
                 f"{str(datetime.datetime.now())}: environment variable 'ZERODHA_BANK_STATEMENT' not set"
             )
-        bank_statment_df = pd.read_csv(bank_statement_file)
+
+        bank_statement_df = pd.read_csv(bank_statement_file)
 
         # clean zerodha bank statement file
+        bank_statement_df = bank_statement_df.dropna()
+        cln_df = self.clean_zerodha_bank_statement_file(bank_statement_df)
+
+        # set posting_date as index
+        cln_df["posting_date"] = pd.to_datetime(cln_df["posting_date"])
+        cln_df = cln_df.set_index("posting_date")
+        cln_df = cln_df.sort_values(by="posting_date")
+
+        cln_df.to_sql(
+            "bank_statement",
+            self.conn,
+            index=True,
+            if_exists="replace",
+            index_label="posting_date",
+        )
 
     def create_trade_report_table(self) -> None:
         trade_report_file = os.getenv("ZERODHA_TRADE_REPORT")
@@ -72,10 +89,12 @@ class Database:
                 f"{str(datetime.datetime.now())}: environment variable 'ZERODHA_TRADE_REPORT' not set"
             )
         df = pd.read_csv(trade_report_file)
+        df = df.dropna()
 
         # set date as index
         df["Trade Date"] = pd.to_datetime(df["Trade Date"])
         df = df.set_index("Trade Date")
+        df = df.sort_values(by="Trade Date")
 
         df.to_sql(
             "trade_report",
@@ -91,4 +110,41 @@ class Database:
     def create_trade_nav_table(self) -> None:
         pass
 
-    # Update utility functions
+    # pandas utility functions
+    def clean_zerodha_bank_statement_file(self, df: pd.DataFrame) -> pd.DataFrame:
+        df["ind_txn"] = df.apply(self.__is_bank_settlement, axis=1)
+        # deal with error code later
+        df = df[df["ind_txn"]]
+        df = df.drop("ind_txn", axis=1)
+
+        return df
+
+    def __is_bank_settlement(self, row: pd.Series | dict) -> bool:
+        """
+        Row or pd.Series structure
+        {
+            particulars:,
+            posting_date:,
+            cost_center:,
+            voucher_type:,
+            debit:,
+            credit:,
+            net_balance
+        }
+        """
+
+        bank_txn_1 = "Bank Payments"
+        bank_txn_2 = "Bank Receipts"
+        debit_cost_center_keyword = "STARMF - Z"
+
+        if bank_txn_1 in row["voucher_type"] or bank_txn_2 in row["voucher_type"]:
+            return True
+
+        if debit_cost_center_keyword in row["cost_center"]: 
+            return True
+
+        return False
+
+    # database utility functions
+    def get_day_zero_bank_statements(self)->list:
+        return []
