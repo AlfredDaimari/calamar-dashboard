@@ -12,7 +12,7 @@ class Time:
     """
 
     def __init__(self, date: str):
-        self.sql__date_format = f"{DATE_FORMAT}+00:00"
+        self.sql_date_format = f"{DATE_FORMAT}+00:00"
         self.date = datetime.datetime.strptime(date, DATE_FORMAT)
 
     def get_date_strf(self):
@@ -22,7 +22,7 @@ class Time:
         """
         Get date in the index sql format style
         """
-        return self.date.strftime(f"{DATE_FORMAT}+00:00")
+        return self.date.strftime(self.sql_date_format)
 
 
 class BankStatement(Time):
