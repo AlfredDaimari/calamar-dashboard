@@ -25,7 +25,7 @@ class Time:
         return self.date.strftime(f"{DATE_FORMAT}+00:00")
 
 
-class BankSettlement(Time):
+class BankStatement(Time):
     def __init__(
         self,
         posting_date: str = "",
@@ -51,7 +51,7 @@ class BankSettlement(Time):
         """
         Takes in the tuple returned from sqlite3 and converts it into BankSettlement object
         """
-        return BankSettlement(*db_tuple)
+        return BankStatement(*db_tuple)
 
     def __str__(self) -> str:
         return f"Settlement: {self.particulars} credit:{self.credit} debit:{self.debit}"
@@ -70,7 +70,7 @@ class IndexNav(Time):
         """
         pass
 
-    def add_to_nav(self, bnk_st: BankSettlement) -> None:
+    def add_to_nav(self, bnk_st: BankStatement) -> None:
         pass
 
 

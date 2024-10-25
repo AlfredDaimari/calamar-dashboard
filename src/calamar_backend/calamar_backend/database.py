@@ -20,7 +20,7 @@ import datetime
 import typing
 from calamar_backend.price import get_price as yf_get_price
 from calamar_backend.maps import TickerMap
-from calamar_backend.interface import BankSettlement, IndexNav, TradeNav
+from calamar_backend.interface import BankStatement, IndexNav, TradeNav
 
 
 class Database:
@@ -164,9 +164,9 @@ class Database:
         cursor = self.conn.cursor()
         cursor.execute(f"SELECT * FROM bank_statement LIMIT 1")
         rows = cursor.fetchall()
-        return BankSettlement.create_bnk_statement(rows[0]).get_date_strf()
+        return BankStatement.create_bnk_statement(rows[0]).get_date_strf()
 
-    def get_day_zero_bank_statements(self) -> list[BankSettlement]:
+    def get_day_zero_bank_statements(self) -> list[BankStatement]:
         day_zero = self.__get_day_zero_bnk_state()
 
         cursor = self.conn.cursor()
@@ -175,4 +175,4 @@ class Database:
         )
         rows = cursor.fetchall()
 
-        return list(map(BankSettlement.create_bnk_statement, rows))
+        return list(map(BankStatement.create_bnk_statement, rows))
