@@ -1,7 +1,7 @@
 # 
 # Description:
 #   This script should only be run form the root calamar_backend directory
-#
+#   run using -> pipenv run bash tests.sh
 
 export PYTHONPATH=.
 export CALAMAR_DB=/home/alfred/Code/projects/calamar_dashboard/src/calamar_backend/.temp/database.db
