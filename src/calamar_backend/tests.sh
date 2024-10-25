@@ -10,9 +10,9 @@ export ZERODHA_TRADE_REPORT=/home/alfred/Code/projects/calamar_dashboard/data/po
 export ZERODHA_BANK_STATEMENT=/home/alfred/Code/projects/calamar_dashboard/data/ledger-FP9847.csv
 
 # add tests to run
-tests=(tests/database.py)
+tests=(tests/database.py tests/utils.py)
 for test in ${tests[@]}
 do
-  echo 'running ${test}'
+  echo "running ${test}"
   python3 $test
 done

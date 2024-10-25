@@ -20,6 +20,7 @@ import datetime
 import typing
 from calamar_backend.price import get_price as yf_get_price
 from calamar_backend.maps import TickerMap
+from calamar_backend.interface import BankSettlement, IndexNav, TradeNav
 
 
 class Database:
@@ -105,9 +106,19 @@ class Database:
         )
 
     def create_index_nav_table(self, ticker: str) -> None:
+        '''
+        - Setup nav for index on day zero till today - 1
+        - Iterate through each day, on every day price exists for index, append index nav
+        '''
+        pass
+
+    def __insert_index_nav_table(self, ind_nav:IndexNav)->None:
         pass
 
     def create_trade_nav_table(self) -> None:
+        pass
+
+    def __insert_trade_nav_table(self, trade_nav:TradeNav)->None:
         pass
 
     # pandas utility functions
@@ -146,5 +157,22 @@ class Database:
         return False
 
     # database utility functions
-    def get_day_zero_bank_statements(self)->list:
-        return []
+    def __get_day_zero_bnk_state(self)->str:
+        '''
+        Returns day zero for bank settlements as string
+        '''
+        cursor = self.conn.cursor()
+        cursor.execute(f'SELECT * FROM bank_statement LIMIT 1')
+        rows = cursor.fetchall()
+        return BankSettlement.create_bnk_statement(rows[0]).get_date_strf() 
+
+
+    def get_day_zero_bank_statements(self)->list[BankSettlement]:
+        day_zero =self.__get_day_zero_bnk_state() 
+        
+        cursor = self.conn.cursor()
+        cursor.execute(f"SELECT * FROM bank_statement WHERE posting_date ='{day_zero}'",)
+        rows = cursor.fetchall() 
+        
+        return list(map(BankSettlement.create_bnk_statement,rows))
+
