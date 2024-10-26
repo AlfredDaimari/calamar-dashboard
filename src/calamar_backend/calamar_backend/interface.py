@@ -4,11 +4,12 @@ import sqlite3
 import pandas as pd
 from calamar_backend.errors import DayClosePriceNotFoundError
 
+
 class Time:
     """
     Time utils
     """
-    
+
     DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
     YF_DATE_FORMAT = f"{DATE_FORMAT}+00:00"
 
@@ -17,7 +18,7 @@ class Time:
 
     def get_date_strf(self):
         return self.date.strftime(self.DATE_FORMAT)
- 
+
     @staticmethod
     def get_current_date() -> datetime.datetime:
         utc_now = datetime.datetime.utcnow().replace(
@@ -31,12 +32,12 @@ class Time:
         return date.strftime(cls.DATE_FORMAT)
 
     @classmethod
-    def convert_yf_date_to_strf(cls, row)->str:
-        '''
+    def convert_yf_date_to_strf(cls, row) -> str:
+        """
         Utility function to convert the yf date format into Time class date format
-        '''
-        date:pd.Timestamp = row["Date"] 
-        return date.strftime(cls.DATE_FORMAT) 
+        """
+        date: pd.Timestamp = row["Date"]
+        return date.strftime(cls.DATE_FORMAT)
 
 
 class BankStatement(Time):
