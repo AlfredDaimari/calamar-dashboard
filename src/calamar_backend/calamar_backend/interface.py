@@ -10,9 +10,9 @@ class Time:
     """
     Time utils
     """
+    sql_date_format = f"{DATE_FORMAT}+00:00"
 
     def __init__(self, date: str):
-        self.sql_date_format = f"{DATE_FORMAT}+00:00"
         self.date = datetime.datetime.strptime(date, DATE_FORMAT)
 
     def get_date_strf(self):
@@ -22,7 +22,19 @@ class Time:
         """
         Get date in the index sql format style
         """
-        return self.date.strftime(self.sql_date_format)
+        return self.date.strftime(Time.sql_date_format)
+    
+    @staticmethod
+    def get_current_date()->datetime.datetime:
+        utc_now = datetime.datetime.utcnow().replace(hour=0,minute=0,second=0,microsecond=0)
+        utc_now_minus_1 = utc_now - datetime.timedelta(days=1)
+        return utc_now_minus_1
+    
+    @classmethod
+    def convert_date_to_strf_index_sql(cls, date:datetime.datetime):
+        return date.strftime(cls.sql_date_format)
+
+
 
 
 class BankStatement(Time):
