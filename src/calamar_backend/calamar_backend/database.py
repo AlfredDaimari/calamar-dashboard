@@ -108,7 +108,7 @@ class Database:
             index_label="Trade Date",
         )
 
-    def create_index_nav_table(self, ticker: str):
+    def create_index_nav_table(self, ticker: str) -> None:
         """
         - Setup nav for index on day zero till today - 1
         - Iterate through each day, on every day price exists for index, append index nav
@@ -116,6 +116,9 @@ class Database:
         index_nav_table_last_date = Time.get_current_date()
 
         # create index nav table
+        cursor = self.conn.cursor()
+        cursor.execute(f"DROP TABLE IF EXISTS {ticker}_index_nav")
+        cursor.execute(IndexNav.create_table_query(ticker))
 
         day_zero_bnk_statements = self.get_day_zero_bank_statements()
         ticker_index_nav = IndexNav(day_zero_bnk_statements[-1].date, ticker, 0.0, 0.0)
@@ -125,15 +128,9 @@ class Database:
 
         # calculate day zero index nav
         ticker_index_nav.calculate_index_nav(self.conn)
-        return ticker_index_nav
-
-    def __insert_index_nav_table(self, ind_nav: IndexNav) -> None:
-        pass
+        cursor.execute(ticker_index_nav.insert_table_query())
 
     def create_trade_nav_table(self) -> None:
-        pass
-
-    def __insert_trade_nav_table(self, trade_nav: TradeNav) -> None:
         pass
 
     # pandas utility functions

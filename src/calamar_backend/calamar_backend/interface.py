@@ -128,10 +128,12 @@ class IndexNav(Time):
         # calculate the amount added or removed that day
         if day_in_n_out > 0:
             self.day_payin = day_in_n_out
+            self.amount_invested += self.day_payin
             self.day_payout = 0
 
         if day_in_n_out < 0:
             self.day_payout = self.day_payout - self.day_payin
+            self.amount_invested -= self.day_payout
             self.day_payin = 0
 
         # calculate the units added or removed that day
@@ -153,6 +155,23 @@ class IndexNav(Time):
     def __str__(self) -> str:
         in_n_out = self.day_payin if self.day_payin else self.day_payout
         return f"Date:{self.get_date_strf_index_sql()} ticker: {self.ticker} in_n_out: {in_n_out} nav:{self.nav} units:{self.units}"
+
+    @staticmethod
+    def create_table_query(ticker: str) -> str:
+        """
+        Table structure:
+        Date: datetime
+        ticker: string
+        day_payin: float
+        day_payout: float
+        amount_invested: float
+        units: float
+        nav: float
+        """
+        return f"CREATE TABLE {ticker}_index_nav (Date DATE NOT NULL, ticker TEXT NOT NULL, day_payin REAL NOT NULL, day_payout REAL NOT NULL, amount_invested REAL NOT NULL, units REAL NOT NULL, nav REAL NOT NULL, PRIMARY KEY (Date))"
+
+    def insert_table_query(self) -> str:
+        return f"INSERT INTO {self.ticker}_index_nav (Date, ticker, day_payin, day_payout, amount_invested, units, nav) VALUES ( '{self.get_date_strf()}', '{self.ticker}', {self.day_payin}, {self.day_payout}, {self.amount_invested}, {self.units}, {self.nav} )"
 
 
 class TradeNav(Time):

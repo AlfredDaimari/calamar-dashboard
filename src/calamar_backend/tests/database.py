@@ -25,8 +25,11 @@ def test_create_index_nav_table() -> bool:
 
     try:
         db_ = db.Database()
-        res = db_.create_index_nav_table(ticker)
-        print(f"\ntest_create_index_nav_table_results: {str(res)}")
+        db_.create_index_nav_table(ticker)
+        cur = db_.conn.cursor()
+        cur.execute(f"SELECT * FROM {ticker}_index_nav LIMIT 1")
+        rows = cur.fetchall()
+        print(f"\ntest_create_index_nav_table_results: {rows}")
 
     except Exception as e:
         print(e)
