@@ -14,5 +14,5 @@ tests=(tests/database.py tests/utils.py)
 for test in ${tests[@]}
 do
   echo "running ${test}"
-  pipenv run python3 $test
+  python3 $test
 done
