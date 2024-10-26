@@ -20,7 +20,7 @@ import datetime
 import typing
 from calamar_backend.price import get_price as yf_get_price
 from calamar_backend.maps import TickerMap
-from calamar_backend.interface import BankStatement, IndexNav, TradeNav
+from calamar_backend.interface import BankStatement, IndexNav, TradeNav, Time
 
 
 class Database:
@@ -83,6 +83,9 @@ class Database:
         )
 
     def create_trade_report_table(self) -> None:
+        """
+        Inserts data in file $ZERODHA_TRADE_REPORT (env var) into trade report table
+        """
         trade_report_file = os.getenv("ZERODHA_TRADE_REPORT")
 
         if trade_report_file is None:
@@ -105,12 +108,24 @@ class Database:
             index_label="Trade Date",
         )
 
-    def create_index_nav_table(self, ticker: str) -> None:
+    def create_index_nav_table(self, ticker: str):
         """
         - Setup nav for index on day zero till today - 1
         - Iterate through each day, on every day price exists for index, append index nav
         """
-        pass
+        index_nav_table_last_date = Time.get_current_date()
+
+        # create index nav table
+
+        day_zero_bnk_statements = self.get_day_zero_bank_statements()
+        ticker_index_nav = IndexNav(day_zero_bnk_statements[-1].date, ticker, 0.0, 0.0)
+
+        for bnk_st in day_zero_bnk_statements:
+            ticker_index_nav.add_to_nav(bnk_st)
+
+        # calculate day zero index nav
+        ticker_index_nav.calculate_index_nav(self.conn)
+        return ticker_index_nav
 
     def __insert_index_nav_table(self, ind_nav: IndexNav) -> None:
         pass
@@ -165,6 +180,9 @@ class Database:
         cursor.execute(f"SELECT * FROM bank_statement LIMIT 1")
         rows = cursor.fetchall()
         return BankStatement.create_bnk_statement(rows[0]).get_date_strf()
+
+    def get_bank_statements(self, date: str) -> list[BankStatement]:
+        return []
 
     def get_day_zero_bank_statements(self) -> list[BankStatement]:
         day_zero = self.__get_day_zero_bnk_state()

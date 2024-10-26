@@ -20,6 +20,21 @@ def test_create_index_table() -> bool:
     return True
 
 
+def test_create_index_nav_table() -> bool:
+    ticker = "nifty50"
+
+    try:
+        db_ = db.Database()
+        res = db_.create_index_nav_table(ticker)
+        print(f"\ntest_create_index_nav_table_results: {str(res)}")
+
+    except Exception as e:
+        print(e)
+        return False
+
+    return True
+
+
 def test_create_trade_report_table() -> bool:
     try:
         db_ = db.Database()
@@ -79,6 +94,7 @@ def main():
     tst_create_trade_report_table: bool = test_create_trade_report_table()
     tst_create_bank_statement_table: bool = test_create_bank_statment_table()
     tst_get_day_zero_bank_statements: bool = test_get_day_zero_bank_statements()
+    tst_create_index_nav_table: bool = test_create_index_nav_table()
     end_time = timeit.default_timer()
     elapsed_time = end_time - start_time
 
@@ -89,6 +105,7 @@ def main():
     print(
         f"test_get_day_zero_bank_statements: {emoji(tst_get_day_zero_bank_statements)}"
     )
+    print(f"test_create_index_nav_table: {emoji(tst_create_index_nav_table)}")
     print("\n")
     print(f"Total elapsed time for database tests: {elapsed_time}")
     print("\n")
