@@ -7,7 +7,7 @@ def test_create_index_table() -> bool:
 
     try:
         db_ = db.Database()
-        # db_.create_index_table(ticker, "2019-12-10", "2024-10-25")
+        db_.create_index_table(ticker, "2019-12-10", "2024-10-25")
         cur = db_.conn.cursor()
         cur.execute(f"SELECT Date, Close FROM {ticker}_price LIMIT 2")
         rows = cur.fetchall()

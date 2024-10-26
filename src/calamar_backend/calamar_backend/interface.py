@@ -1,31 +1,23 @@
 # file to define the different data structures to be used in baseline library
-from typing import Type
 import datetime
 import sqlite3
+import pandas as pd
 from calamar_backend.errors import DayClosePriceNotFoundError
-
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-
 
 class Time:
     """
     Time utils
     """
-
-    sql_date_format = f"{DATE_FORMAT}+00:00"
+    
+    DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+    YF_DATE_FORMAT = f"{DATE_FORMAT}+00:00"
 
     def __init__(self, date: str):
-        self.date = datetime.datetime.strptime(date, DATE_FORMAT)
+        self.date = datetime.datetime.strptime(date, self.DATE_FORMAT)
 
     def get_date_strf(self):
-        return self.date.strftime(DATE_FORMAT)
-
-    def get_date_strf_index_sql(self):
-        """
-        Get date in the index sql format style
-        """
-        return self.date.strftime(Time.sql_date_format)
-
+        return self.date.strftime(self.DATE_FORMAT)
+ 
     @staticmethod
     def get_current_date() -> datetime.datetime:
         utc_now = datetime.datetime.utcnow().replace(
@@ -35,8 +27,16 @@ class Time:
         return utc_now_minus_1
 
     @classmethod
-    def convert_date_to_strf_index_sql(cls, date: datetime.datetime):
-        return date.strftime(cls.sql_date_format)
+    def convert_date_to_strf(cls, date: datetime.datetime):
+        return date.strftime(cls.DATE_FORMAT)
+
+    @classmethod
+    def convert_yf_date_to_strf(cls, row)->str:
+        '''
+        Utility function to convert the yf date format into Time class date format
+        '''
+        date:pd.Timestamp = row["Date"] 
+        return date.strftime(cls.DATE_FORMAT) 
 
 
 class BankStatement(Time):
@@ -115,7 +115,7 @@ class IndexNav(Time):
         day_index_price = 0
         cursor = conn.cursor()
         cursor.execute(
-            f"SELECT Close FROM {self.ticker}_price WHERE Date='{self.get_date_strf_index_sql()}'"
+            f"SELECT Close FROM {self.ticker}_price WHERE Date='{self.get_date_strf()}'"
         )
         rows = cursor.fetchall()
         if len(rows) == 0:
@@ -154,7 +154,7 @@ class IndexNav(Time):
 
     def __str__(self) -> str:
         in_n_out = self.day_payin if self.day_payin else self.day_payout
-        return f"Date:{self.get_date_strf_index_sql()} ticker: {self.ticker} in_n_out: {in_n_out} nav:{self.nav} units:{self.units}"
+        return f"Date:{self.get_date_strf()} ticker: {self.ticker} in_n_out: {in_n_out} nav:{self.nav} units:{self.units}"
 
     @staticmethod
     def create_table_query(ticker: str) -> str:
