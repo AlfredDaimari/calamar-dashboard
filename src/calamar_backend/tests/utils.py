@@ -3,6 +3,7 @@ import datetime
 from calamar_backend import interface as inf
 from calamar_backend import database as db
 
+
 def test_string_sql_format() -> bool:
     date = "2023-10-11 00:00:00"
     try:
@@ -32,7 +33,7 @@ def test_get_current_date() -> bool:
 
     try:
         cur_date = inf.Time.get_current_date()
-        cur_date_str = inf.Time.convert_date_to_strf_index_sql(cur_date) 
+        cur_date_str = inf.Time.convert_date_to_strf_index_sql(cur_date)
         bl = cur_date_str == utc_now_minus_1.strftime(inf.Time.sql_date_format)
         print(f"\ntest_get_current_date_results: {cur_date}")
 
