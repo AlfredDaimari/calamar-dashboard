@@ -8,6 +8,7 @@ numpy = "*"
 yfinance = "*"
 pyyaml = "*"
 pandas = "*"
+tqdm = "*"
 
 [dev-packages]
 

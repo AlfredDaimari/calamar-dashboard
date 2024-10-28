@@ -99,6 +99,36 @@ class BankStatement(Time):
             assert self.debit > 0
             return (False, self.debit)
 
+    @staticmethod
+    def is_bank_statement(row: pd.Series | dict) -> bool:
+        """
+        Row or pd.Series structure
+        {
+            particulars:,
+            posting_date:,
+            cost_center:,
+            voucher_type:,
+            debit:,
+            credit:,
+            net_balance
+        }
+        """
+
+        bank_txn_1 = "Bank Payments"
+        bank_txn_2 = "Bank Receipts"
+        debit_cost_center_keyword = "STARMF - Z"
+
+        if (
+            bank_txn_1 in row["voucher_type"]
+            or bank_txn_2 in row["voucher_type"]
+        ):
+            return True
+
+        if debit_cost_center_keyword in row["cost_center"]:
+            return True
+
+        return False
+
     def __str__(self) -> str:
         return f"Statement:{self.particulars} credit:{self.credit} debit:{self.debit}"
 

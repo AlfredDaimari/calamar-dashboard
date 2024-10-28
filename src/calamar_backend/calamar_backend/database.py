@@ -18,6 +18,7 @@ import sqlite3
 import os
 import datetime
 import typing
+import tqdm
 from calamar_backend import errors
 from calamar_backend.price import get_price as yf_get_price
 from calamar_backend.maps import TickerMap
@@ -139,39 +140,59 @@ class Database:
         ticker_index_nav.reset()
 
         # add every day from day zero to current date to the index nav
-        for day in Time.range_date(
-            ticker_index_nav.date + datetime.timedelta(days=1),
-            index_nav_table_last_date,
-        ):
-            try:
-                bnk_statements = self.get_bank_statements(day)
+        st_date = ticker_index_nav.date + datetime.timedelta(days=1)
+        print("\n")
 
-                # adding bank statements
-                for bnk_st in bnk_statements:
-                    ticker_index_nav.add_to_nav(bnk_st)
+        # create progress bar
+        with tqdm.tqdm(
+            total=(index_nav_table_last_date - st_date).days,
+            desc=f"Writing daily nav to {ticker}_index_nav table",
+            leave=True,
+        ) as pbar:
+            """
+            - get bank statements for current day
+            - add bank statments for calculating day_payin or day_payout
+            - add day_payin or day_payout to amount_invested
+            - calculate day nav
+            - write to database
+            - reset ticker_index_nav for next day
+            """
+            for day in Time.range_date(st_date, index_nav_table_last_date):
+                bnk_statements = []
 
-                # setting new date
-                ticker_index_nav.date = day
-                ticker_index_nav.calculate_index_nav(self.conn)
-                query = ticker_index_nav.insert_table_query()
-                cursor.execute(query)
-                self.conn.commit()
+                try:
+                    bnk_statements = self.get_bank_statements(day)
 
-                # reset calculation for the next day
-                ticker_index_nav.reset()
+                    # adding bank statements
+                    for bnk_st in bnk_statements:
+                        ticker_index_nav.add_to_nav(bnk_st)
 
-            except errors.DayBankStatementNotFoundError:
-                continue
+                    # setting new date
+                    ticker_index_nav.date = day
+                    ticker_index_nav.calculate_index_nav(self.conn)
+                    query = ticker_index_nav.insert_table_query()
+                    cursor.execute(query)
+                    self.conn.commit()
 
-            except errors.DayClosePriceNotFoundError:
-                raise Exception(
-                    "Error: bank statments exists, but market was closed"
-                )
+                    # reset calculation for the next day
+                    ticker_index_nav.reset()
 
-            except Exception as e:
-                raise Exception(
-                    f"{datetime.datetime.now()}: db:create_index_nav_table: something went really wrong! - {e}"
-                )
+                except errors.DayClosePriceNotFoundError:
+                    if len(bnk_statements) != 0:
+                        raise Exception(
+                            "Error: bank statments exists, but market was closed"
+                        )
+                    else:
+                        continue
+
+                except Exception as e:
+                    raise Exception(
+                        f"{datetime.datetime.now()}: db:create_index_nav_table: something went really wrong! - {e}"
+                    )
+
+                finally:
+                    # pbar update
+                    pbar.update(1)
 
     def create_trade_nav_table(self) -> None:
         pass
@@ -180,41 +201,12 @@ class Database:
     def clean_zerodha_bank_statement_file(
         self, df: pd.DataFrame
     ) -> pd.DataFrame:
-        df["ind_txn"] = df.apply(self.__is_bank_settlement, axis=1)
+        df["ind_txn"] = df.apply(BankStatement.is_bank_statement, axis=1)
         # deal with error code later
         df = df[df["ind_txn"]]
         df = df.drop("ind_txn", axis=1)
 
         return df
-
-    def __is_bank_settlement(self, row: pd.Series | dict) -> bool:
-        """
-        Row or pd.Series structure
-        {
-            particulars:,
-            posting_date:,
-            cost_center:,
-            voucher_type:,
-            debit:,
-            credit:,
-            net_balance
-        }
-        """
-
-        bank_txn_1 = "Bank Payments"
-        bank_txn_2 = "Bank Receipts"
-        debit_cost_center_keyword = "STARMF - Z"
-
-        if (
-            bank_txn_1 in row["voucher_type"]
-            or bank_txn_2 in row["voucher_type"]
-        ):
-            return True
-
-        if debit_cost_center_keyword in row["cost_center"]:
-            return True
-
-        return False
 
     # database utility functions
     def __get_day_zero_bnk_state(self) -> str:
@@ -235,11 +227,7 @@ class Database:
         cursor = self.conn.cursor()
         cursor.execute(BankStatement.get_bnk_statement_query(date))
         rows = cursor.fetchall()
-
-        if len(rows) == 0:
-            raise errors.DayBankStatementNotFoundError
-        else:
-            return list(map(BankStatement.create_bnk_statement, rows))
+        return list(map(BankStatement.create_bnk_statement, rows))
 
     def get_day_zero_bank_statements(self) -> list[BankStatement]:
         day_zero = self.__get_day_zero_bnk_state()
