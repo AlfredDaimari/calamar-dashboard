@@ -72,7 +72,9 @@ class BankStatement(Time):
         self.net_balance = net_balance
 
     @staticmethod
-    def create_bnk_statement(db_tuple: tuple[str, str, str, str, float, float, float]):
+    def create_bnk_statement(
+        db_tuple: tuple[str, str, str, str, float, float, float]
+    ):
         """
         Takes in the tuple returned from sqlite3 and converts it into BankSettlement object
         """

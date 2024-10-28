@@ -120,10 +120,14 @@ class Database:
         cursor = self.conn.cursor()
         cursor.execute(f"DROP TABLE IF EXISTS {ticker}_index_nav")
         cursor.execute(IndexNav.create_table_query(ticker))
-        cursor.execute(f"""CREATE INDEX idx_date ON {ticker}_index_nav("Date")""")
+        cursor.execute(
+            f"""CREATE INDEX idx_date ON {ticker}_index_nav("Date")"""
+        )
 
         day_zero_bnk_statements = self.get_day_zero_bank_statements()
-        ticker_index_nav = IndexNav(day_zero_bnk_statements[-1].date, ticker, 0.0, 0.0)
+        ticker_index_nav = IndexNav(
+            day_zero_bnk_statements[-1].date, ticker, 0.0, 0.0
+        )
 
         for bnk_st in day_zero_bnk_statements:
             ticker_index_nav.add_to_nav(bnk_st)
@@ -159,7 +163,9 @@ class Database:
                 continue
 
             except errors.DayClosePriceNotFoundError:
-                raise Exception("Error: bank statments exists, but market was closed")
+                raise Exception(
+                    "Error: bank statments exists, but market was closed"
+                )
 
             except Exception as e:
                 raise Exception(
@@ -170,7 +176,9 @@ class Database:
         pass
 
     # pandas utility functions
-    def clean_zerodha_bank_statement_file(self, df: pd.DataFrame) -> pd.DataFrame:
+    def clean_zerodha_bank_statement_file(
+        self, df: pd.DataFrame
+    ) -> pd.DataFrame:
         df["ind_txn"] = df.apply(self.__is_bank_settlement, axis=1)
         # deal with error code later
         df = df[df["ind_txn"]]
@@ -196,7 +204,10 @@ class Database:
         bank_txn_2 = "Bank Receipts"
         debit_cost_center_keyword = "STARMF - Z"
 
-        if bank_txn_1 in row["voucher_type"] or bank_txn_2 in row["voucher_type"]:
+        if (
+            bank_txn_1 in row["voucher_type"]
+            or bank_txn_2 in row["voucher_type"]
+        ):
             return True
 
         if debit_cost_center_keyword in row["cost_center"]:
@@ -214,7 +225,9 @@ class Database:
         rows = cursor.fetchall()
         return BankStatement.create_bnk_statement(rows[0]).get_date_strf()
 
-    def get_bank_statements(self, date: datetime.datetime) -> list[BankStatement]:
+    def get_bank_statements(
+        self, date: datetime.datetime
+    ) -> list[BankStatement]:
         """
         Get bank statements on :parameter date
         """

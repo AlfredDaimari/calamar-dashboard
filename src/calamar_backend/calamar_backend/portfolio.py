@@ -59,7 +59,9 @@ class BasePortfolio:
         """
         print("create_portfolio_nav: Creating portfolio nav since inception")
 
-    def __create_portfolio_nav_extensive(self, output_portfolio_json: str) -> None:
+    def __create_portfolio_nav_extensive(
+        self, output_portfolio_json: str
+    ) -> None:
         """
         Create an extensive portfolio nav history on each day from inception till last trading day
         """

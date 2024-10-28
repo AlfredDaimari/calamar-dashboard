@@ -12,7 +12,9 @@ def get_price(ticker: str, start: str, end: str) -> pd.DataFrame:
     :param start: starting date
     :param end: ending date
     """
-    print(f"{str(datetime.datetime.now())}: downloading {ticker} from yahoo finance")
+    print(
+        f"{str(datetime.datetime.now())}: downloading {ticker} from yahoo finance"
+    )
     df: pd.DataFrame = yf.download(ticker, start=start, end=end)
 
     # reset multi-level index
