@@ -136,6 +136,7 @@ class Database:
         ticker_index_nav.calculate_index_nav(self.conn)
         cursor.execute(ticker_index_nav.insert_table_query())
         self.conn.commit()
+        ticker_index_nav.reset()
 
         # add every day from day zero to current date to the index nav
         for day in Time.range_date(
