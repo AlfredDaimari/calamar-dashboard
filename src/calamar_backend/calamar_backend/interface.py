@@ -3,6 +3,7 @@ import datetime
 import sqlite3
 import pandas as pd
 from calamar_backend.errors import DayClosePriceNotFoundError
+import typing
 
 
 class Time:
@@ -39,6 +40,15 @@ class Time:
         date: pd.Timestamp = row["Date"]
         return date.strftime(cls.DATE_FORMAT)
 
+    @staticmethod
+    def range_date(
+        start: datetime.datetime, end: datetime.datetime
+    ) -> typing.Generator[datetime.datetime, None, None]:
+        current_date: datetime.datetime = start
+        while current_date <= end:
+            yield current_date
+            current_date += datetime.timedelta(days=1)
+
 
 class BankStatement(Time):
     def __init__(
@@ -67,6 +77,11 @@ class BankStatement(Time):
         Takes in the tuple returned from sqlite3 and converts it into BankSettlement object
         """
         return BankStatement(*db_tuple)
+
+    @staticmethod
+    def get_bnk_statement_query(date: datetime.datetime) -> str:
+        date_str = Time.convert_date_to_strf(date)
+        return f"SELECT * FROM bank_statement WHERE posting_date = '{date_str}'"
 
     def is_credit_debit(self) -> tuple[bool, float]:
         """
@@ -157,6 +172,14 @@ class IndexNav(Time):
         in_n_out = self.day_payin if self.day_payin else self.day_payout
         return f"Date:{self.get_date_strf()} ticker: {self.ticker} in_n_out: {in_n_out} nav:{self.nav} units:{self.units}"
 
+    def reset(self) -> None:
+        """
+        This function resets the days activities, so that a new days activities can be added to the object
+        """
+        self.day_payin = 0
+        self.day_payout = 0
+        self.nav = 0
+
     @staticmethod
     def create_table_query(ticker: str) -> str:
         """
@@ -169,7 +192,7 @@ class IndexNav(Time):
         units: float
         nav: float
         """
-        return f"CREATE TABLE {ticker}_index_nav (Date DATE NOT NULL, ticker TEXT NOT NULL, day_payin REAL NOT NULL, day_payout REAL NOT NULL, amount_invested REAL NOT NULL, units REAL NOT NULL, nav REAL NOT NULL, PRIMARY KEY (Date))"
+        return f"""CREATE TABLE {ticker}_index_nav ("Date" DATE, "ticker" TEXT, "day_payin" REAL, "day_payout" REAL, "amount_invested" REAL, "units" REAL, "nav" REAL)"""
 
     def insert_table_query(self) -> str:
         return f"INSERT INTO {self.ticker}_index_nav (Date, ticker, day_payin, day_payout, amount_invested, units, nav) VALUES ( '{self.get_date_strf()}', '{self.ticker}', {self.day_payin}, {self.day_payout}, {self.amount_invested}, {self.units}, {self.nav} )"

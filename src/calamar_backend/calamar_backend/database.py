@@ -18,6 +18,7 @@ import sqlite3
 import os
 import datetime
 import typing
+from calamar_backend import errors
 from calamar_backend.price import get_price as yf_get_price
 from calamar_backend.maps import TickerMap
 from calamar_backend.interface import BankStatement, IndexNav, TradeNav, Time
@@ -119,6 +120,7 @@ class Database:
         cursor = self.conn.cursor()
         cursor.execute(f"DROP TABLE IF EXISTS {ticker}_index_nav")
         cursor.execute(IndexNav.create_table_query(ticker))
+        cursor.execute(f"""CREATE INDEX idx_date ON {ticker}_index_nav("Date")""")
 
         day_zero_bnk_statements = self.get_day_zero_bank_statements()
         ticker_index_nav = IndexNav(day_zero_bnk_statements[-1].date, ticker, 0.0, 0.0)
@@ -129,6 +131,40 @@ class Database:
         # calculate day zero index nav
         ticker_index_nav.calculate_index_nav(self.conn)
         cursor.execute(ticker_index_nav.insert_table_query())
+        self.conn.commit()
+
+        # add every day from day zero to current date to the index nav
+        for day in Time.range_date(
+            ticker_index_nav.date + datetime.timedelta(days=1),
+            index_nav_table_last_date,
+        ):
+            try:
+                bnk_statements = self.get_bank_statements(day)
+
+                # adding bank statements
+                for bnk_st in bnk_statements:
+                    ticker_index_nav.add_to_nav(bnk_st)
+
+                # setting new date
+                ticker_index_nav.date = day
+                ticker_index_nav.calculate_index_nav(self.conn)
+                query = ticker_index_nav.insert_table_query()
+                cursor.execute(query)
+                self.conn.commit()
+
+                # reset calculation for the next day
+                ticker_index_nav.reset()
+
+            except errors.DayBankStatementNotFoundError:
+                continue
+
+            except errors.DayClosePriceNotFoundError:
+                raise Exception("Error: bank statments exists, but market was closed")
+
+            except Exception as e:
+                raise Exception(
+                    f"{datetime.datetime.now()}: db:create_index_nav_table: something went really wrong! - {e}"
+                )
 
     def create_trade_nav_table(self) -> None:
         pass
@@ -178,8 +214,18 @@ class Database:
         rows = cursor.fetchall()
         return BankStatement.create_bnk_statement(rows[0]).get_date_strf()
 
-    def get_bank_statements(self, date: str) -> list[BankStatement]:
-        return []
+    def get_bank_statements(self, date: datetime.datetime) -> list[BankStatement]:
+        """
+        Get bank statements on :parameter date
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(BankStatement.get_bnk_statement_query(date))
+        rows = cursor.fetchall()
+
+        if len(rows) == 0:
+            raise errors.DayBankStatementNotFoundError
+        else:
+            return list(map(BankStatement.create_bnk_statement, rows))
 
     def get_day_zero_bank_statements(self) -> list[BankStatement]:
         day_zero = self.__get_day_zero_bnk_state()
