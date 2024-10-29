@@ -1,4 +1,10 @@
-# file to implement a basic file directory which acts as a database for equity price information
+"""
+CSV Database
+    Read:
+        - read from CSV Dir
+        - read from LRU
+        - read from yahoo finance
+"""
 import datetime
 import typing
 import pandas as pd
@@ -19,9 +25,10 @@ class DatabaseCSV:
         self.map = TickerMap()  # make a global ticker map variable
         self.csv_dir_path = os.getenv("CALAMAR_CSV_DB")
 
-        if self.csv_dir_path == None:
+        if self.csv_dir_path is None:
             raise Exception(
-                f"{str(datetime.datetime.now())}: environment variable 'CALAMAR_CSV_DB' not set"
+                f"{str(datetime.datetime.now())}: "
+                "environment variable 'CALAMAR_CSV_DB' not set"
             )
         self.mem_slots = mem_slots
         self.lru: list[tuple[str, int, pd.DataFrame]] = []
@@ -145,9 +152,11 @@ class DatabaseCSV:
         except KeyError:
             raise DayClosePriceNotFoundError
 
-        except Exception:
+        except Exception as e:
             raise Exception(
-                f"{datetime.datetime.now()}: db_csv.read({ticker},{Time.convert_date_to_strf(date)}): something went wrong!"
+                f"{datetime.datetime.now()}: "
+                f"db_csv.read({ticker},{Time.convert_date_to_strf(date)}): "
+                f"something went wrong - {e}!"
             )
 
         return (loc, ret)

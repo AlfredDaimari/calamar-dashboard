@@ -13,7 +13,8 @@ def download_price(ticker: str, start: str, end: str) -> pd.DataFrame:
     :param end: ending date
     """
     print(
-        f"{str(datetime.datetime.now())}: downloading {ticker} from yahoo finance"
+        f"{str(datetime.datetime.now())}: "
+        f"downloading {ticker} from yahoo finance"
     )
     df: pd.DataFrame = yf.download(ticker, start=start, end=end)
 

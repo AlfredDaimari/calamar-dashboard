@@ -17,7 +17,8 @@ class TickerMap:
                 self.map = yaml.safe_load(file)
         else:
             raise Exception(
-                f"{str(datetime.datetime.now())}: environment variable 'TICKER_MAP' not set"
+                f"{str(datetime.datetime.now())}: "
+                "environment variable 'TICKER_MAP' not set"
             )
 
     def get(self, ticker: str) -> str:
@@ -28,6 +29,7 @@ class TickerMap:
             yticker: str = self.map[ticker]
         except KeyError:
             raise Exception(
-                f"{str(datetime.datetime.now())}: zerodha ticker - {ticker} not defined in file {self.map_yaml}"
+                f"{str(datetime.datetime.now())}: zerodha ticker "
+                f"- {ticker} not defined in file {self.map_yaml}"
             )
         return yticker

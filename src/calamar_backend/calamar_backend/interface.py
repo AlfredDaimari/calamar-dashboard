@@ -1,4 +1,10 @@
-# file to define the different data structures to be used in baseline library
+"""
+Utility Classes
+    - Time: contains timedate utils
+    - BankStatement: Zerodha bank statement representation
+    - IndexNav: index nav on a trading day
+    - TradeNav: portfolio nav on a trading day
+"""
 import datetime
 import sqlite3
 import pandas as pd
@@ -35,7 +41,7 @@ class Time:
     @classmethod
     def convert_yf_date_to_strf(cls, row) -> str:
         """
-        Utility function to convert the yf date format into Time class date format
+        Utility function to convert yf date into Time class date format
         """
         date: pd.Timestamp = row["Date"]
         return date.strftime(cls.DATE_FORMAT)
@@ -101,14 +107,17 @@ class BankStatement(Time):
         db_tuple: tuple[str, str, str, str, float, float, float]
     ):
         """
-        Takes in the tuple returned from sqlite3 and converts it into BankSettlement object
+        Converts tuple from sqlite3 into BankSettlement object
         """
         return BankStatement(*db_tuple)
 
     @staticmethod
     def get_bnk_statement_query(date: datetime.datetime) -> str:
         date_str = Time.convert_date_to_strf(date)
-        return f"SELECT * FROM bank_statement WHERE posting_date = '{date_str}'"
+        return (
+            f"SELECT * FROM bank_statement WHERE "
+            f"posting_date = '{date_str}'"
+        )
 
     def is_credit_debit(self) -> tuple[bool, float]:
         """
@@ -155,7 +164,10 @@ class BankStatement(Time):
         return False
 
     def __str__(self) -> str:
-        return f"Statement:{self.particulars} credit:{self.credit} debit:{self.debit}"
+        return (
+            f"Statement:{self.particulars} credit:{self.credit} "
+            f"debit:{self.debit}"
+        )
 
 
 class IndexNav(Time):
@@ -181,14 +193,15 @@ class IndexNav(Time):
     def calculate_index_nav(self, conn: sqlite3.Connection) -> None:
         """
         Update the current index nav using self.date day Close
-        Warning: This function should only be called only after all bnk transactions
-        have been added for the day
+        Warning: The function should only be called only after all
+        bnk transactions have been added for the day
         """
         # get index date price
         day_index_price = 0
         cursor = conn.cursor()
         cursor.execute(
-            f"SELECT Close FROM {self.ticker}_price WHERE Date='{self.get_date_strf()}'"
+            f"SELECT Close FROM {self.ticker}_price WHERE Date="
+            f"'{self.get_date_strf()}'"
         )
         rows = cursor.fetchall()
         if len(rows) == 0:
@@ -227,11 +240,15 @@ class IndexNav(Time):
 
     def __str__(self) -> str:
         in_n_out = self.day_payin if self.day_payin else self.day_payout
-        return f"Date:{self.get_date_strf()} ticker: {self.ticker} in_n_out: {in_n_out} nav:{self.nav} units:{self.units}"
+        return (
+            f"Date:{self.get_date_strf()} ticker: {self.ticker} "
+            f"in_n_out: {in_n_out} nav:{self.nav} units:{self.units}"
+        )
 
     def reset(self) -> None:
         """
-        This function resets the days activities, so that a new days activities can be added to the object
+        This function resets the days activities, so that a new
+        days' activities can be added to the object
         """
         self.day_payin = 0
         self.day_payout = 0
@@ -249,10 +266,20 @@ class IndexNav(Time):
         units: float
         nav: float
         """
-        return f"""CREATE TABLE {ticker}_index_nav ("Date" DATE, "ticker" TEXT, "day_payin" REAL, "day_payout" REAL, "amount_invested" REAL, "units" REAL, "nav" REAL)"""
+        return (
+            f"""CREATE TABLE {ticker}_index_nav ("Date" DATE, "ticker" TEXT,"""
+            f'"day_payin" REAL, "day_payout" REAL, "amount_invested" REAL,'
+            f'"units" REAL, "nav" REAL)'
+        )
 
     def insert_table_query(self) -> str:
-        return f"INSERT INTO {self.ticker}_index_nav (Date, ticker, day_payin, day_payout, amount_invested, units, nav) VALUES ( '{self.get_date_strf()}', '{self.ticker}', {self.day_payin}, {self.day_payout}, {self.amount_invested}, {self.units}, {self.nav} )"
+        return (
+            f"INSERT INTO {self.ticker}_index_nav (Date, ticker, day_payin, "
+            f"day_payout, amount_invested, units, nav) "
+            f"VALUES ( '{self.get_date_strf()}', '{self.ticker}', "
+            f"{self.day_payin}, {self.day_payout}, {self.amount_invested}, "
+            f"{self.units}, {self.nav} )"
+        )
 
 
 class TradeNav(Time):

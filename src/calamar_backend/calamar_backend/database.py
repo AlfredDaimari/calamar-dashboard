@@ -1,14 +1,14 @@
 """
 Database utils functions:
     Create:
-    - create index table 
+    - create index table
     - create bank statement table
     - create index nav table
     - create trade_report table
     - create trade nav table
 
     Update:
-    - update index table 
+    - update index table
     - update bank statement table
     - update trade_report table
 """
@@ -34,11 +34,12 @@ class Database:
         self.db_name = os.getenv("CALAMAR_DB")
         self.__tm = TickerMap()
 
-        if self.db_name != None:
+        if self.db_name is not None:
             self.conn = sqlite3.connect(self.db_name)
         else:
             raise Exception(
-                f"{str(datetime.datetime.now())}: environment variable 'CALAMAR_DB' not set"
+                f"{str(datetime.datetime.now())}: "
+                "environment variable 'CALAMAR_DB' not set"
             )
 
     def create_index_table(self, ticker: str, start: str, end: str) -> None:
@@ -62,7 +63,8 @@ class Database:
 
         if bank_statement_file is None:
             raise Exception(
-                f"{str(datetime.datetime.now())}: environment variable 'ZERODHA_BANK_STATEMENT' not set"
+                f"{str(datetime.datetime.now())}: "
+                "environment variable 'ZERODHA_BANK_STATEMENT' not set"
             )
 
         bank_statement_df = pd.read_csv(bank_statement_file)
@@ -86,13 +88,14 @@ class Database:
 
     def create_trade_report_table(self) -> None:
         """
-        Inserts data in file $ZERODHA_TRADE_REPORT (env var) into trade report table
+        Inserts data in file $ZERODHA_TRADE_REPORT into trade report table
         """
         trade_report_file = os.getenv("ZERODHA_TRADE_REPORT")
 
         if trade_report_file is None:
             raise Exception(
-                f"{str(datetime.datetime.now())}: environment variable 'ZERODHA_TRADE_REPORT' not set"
+                f"{str(datetime.datetime.now())}: "
+                "environment variable 'ZERODHA_TRADE_REPORT' not set"
             )
         df = pd.read_csv(trade_report_file)
         df = df.dropna()
@@ -113,7 +116,7 @@ class Database:
     def create_index_nav_table(self, ticker: str) -> None:
         """
         - Setup nav for index on day zero till today - 1
-        - Iterate through each day, on every day price exists for index, append index nav
+        - Iterate through each day, create index nav on every trading day
         """
         index_nav_table_last_date = Time.get_current_date()
 
@@ -180,14 +183,17 @@ class Database:
                 except errors.DayClosePriceNotFoundError:
                     if len(bnk_statements) != 0:
                         raise Exception(
-                            "Error: bank statments exists, but market was closed"
+                            "Error: bank statments exists, "
+                            "but market was closed"
                         )
                     else:
                         continue
 
                 except Exception as e:
                     raise Exception(
-                        f"{datetime.datetime.now()}: db:create_index_nav_table: something went really wrong! - {e}"
+                        f"{datetime.datetime.now()}:"
+                        "db:create_index_nav_table: "
+                        f"something went really wrong! - {e}"
                     )
 
                 finally:
@@ -214,7 +220,7 @@ class Database:
         Returns day zero for bank settlements as string
         """
         cursor = self.conn.cursor()
-        cursor.execute(f"SELECT * FROM bank_statement LIMIT 1")
+        cursor.execute("SELECT * FROM bank_statement LIMIT 1")
         rows = cursor.fetchall()
         return BankStatement.create_bnk_statement(rows[0]).get_date_strf()
 
