@@ -18,7 +18,7 @@ def test_read() -> bool:
         # removing files for better tests
         for key in dates:
             fy: int = inf.Time.date_fy(dates[key].date)
-            file_path = db_.get_csv_file_path((fy, ticker))
+            file_path = db_.get_csv_file_path((ticker, fy))
 
             if os.path.exists(file_path):
                 os.remove(file_path)

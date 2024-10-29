@@ -70,6 +70,10 @@ class Time:
         else:
             return (f"{date.year}-04-01", f"{date.year + 1}-3-31")
 
+    @staticmethod
+    def date_in_fy_start_end(fy: int) -> tuple[str, str]:
+        return (f"{fy-1}-04-01", f"{fy}-03-31")
+
 
 class BankStatement(Time):
     def __init__(

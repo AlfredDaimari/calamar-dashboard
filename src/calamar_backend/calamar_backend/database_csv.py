@@ -26,13 +26,11 @@ class DatabaseCSV:
         self.mem_slots = mem_slots
         self.lru: list[tuple[str, int, pd.DataFrame]] = []
 
-    def get_csv_file_path(self, ticker_fy: tuple[int, str]) -> str:
-        return f"{self.csv_dir_path}/{ticker_fy[-1]}_{ticker_fy[0]}"
+    def get_csv_file_path(self, ticker_fy: tuple[str, int]) -> str:
+        return f"{self.csv_dir_path}/{ticker_fy[0]}_{ticker_fy[-1]}"
 
     def __file_exists(self, ticker_fy: tuple[str, int]) -> bool:
-        csv_file = pathlib.Path(
-            f"{self.csv_dir_path}/{ticker_fy[0] + '_' + str(ticker_fy[-1])}"
-        )
+        csv_file = pathlib.Path(self.get_csv_file_path(ticker_fy))
         return csv_file.is_file()
 
     def __lru_find_dataframe(self, ticker_fy: tuple[str, int]) -> int:
@@ -73,6 +71,45 @@ class DatabaseCSV:
             self.lru.pop(mem_loc)
             self.lru.append((ticker, fy, df))
 
+    def __read_df_from_lru(
+        self, ticker_fy: tuple[str, int], loc: int
+    ) -> pd.DataFrame:
+        """
+        Read from LRU
+        """
+        df = self.lru[loc][-1]
+        self.lru_append_data(ticker_fy, df)
+        return df
+
+    def __read_df_from_csv_dir(
+        self, ticker_fy: tuple[str, int]
+    ) -> pd.DataFrame:
+        """
+        Read data from CSV directory
+        """
+        df = pd.read_csv(self.get_csv_file_path(ticker_fy))
+        df["Date"] = pd.to_datetime(df["Date"])
+        df = df.set_index("Date")
+        self.lru_append_data(ticker_fy, df)
+        return df
+
+    def __read_df_from_yf(self, ticker_fy: tuple[str, int]) -> pd.DataFrame:
+        """
+        Read data from yahoo finance
+        """
+        [ticker, fy] = ticker_fy
+        [start, end] = Time.date_in_fy_start_end(fy)
+
+        df = yf_download_price(self.map.get(ticker), start, end)
+        df.to_csv(
+            self.get_csv_file_path(ticker_fy),
+            index=True,
+            index_label="Date",
+        )
+
+        self.lru_append_data(ticker_fy, df)
+        return df
+
     def read(
         self, ticker: str, date: datetime.datetime
     ) -> tuple[int, pd.Series | None]:
@@ -95,48 +132,22 @@ class DatabaseCSV:
         if self.__file_exists((ticker, fy)):
             loc = self.__lru_find_dataframe((ticker, fy))
 
-            try:
-                if loc != -1:
-                    df = self.lru[loc][-1]
-                    self.lru_append_data((ticker, fy), df)
-                    ret = df.loc[Time.convert_date_to_strf(date)]
-
-                else:
-                    df = pd.read_csv(f"{self.csv_dir_path}/{ticker}_{fy}")
-                    df["Date"] = pd.to_datetime(df["Date"])
-                    df = df.set_index("Date")
-                    self.lru_append_data((ticker, fy), df)
-                    ret = df.loc[Time.convert_date_to_strf(date)]
-
-            except KeyError:
-                raise DayClosePriceNotFoundError
-
-            except Exception:
-                raise Exception(
-                    f"{datetime.datetime.now(): db_csv.read({ticker},{Time.convert_date_to_strf(date)}): something went wrong}!"
-                )
-
+            if loc != -1:
+                df = self.__read_df_from_lru((ticker, fy), loc)
+            else:
+                df = self.__read_df_from_csv_dir((ticker, fy))
         else:
-            [start, end] = Time.date_fy_start_end(date)
+            df = self.__read_df_from_yf((ticker, fy))
 
-            df = yf_download_price(self.map.get(ticker), start, end)
-            df.to_csv(
-                f"{self.csv_dir_path}/{ticker}_{fy}",
-                index=True,
-                index_label="Date",
+        try:
+            ret = df.loc[Time.convert_date_to_strf(date)]
+
+        except KeyError:
+            raise DayClosePriceNotFoundError
+
+        except Exception:
+            raise Exception(
+                f"{datetime.datetime.now()}: db_csv.read({ticker},{Time.convert_date_to_strf(date)}): something went wrong!"
             )
-
-            self.lru_append_data((ticker, fy), df)
-
-            try:
-                ret = df.loc[Time.convert_date_to_strf(date)]
-
-            except KeyError:
-                raise DayClosePriceNotFoundError
-
-            except Exception:
-                raise Exception(
-                    f"{datetime.datetime.now()}: db_csv.read({ticker},{Time.convert_date_to_strf(date)}): something went wrong!"
-                )
 
         return (loc, ret)
