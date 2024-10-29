@@ -20,7 +20,7 @@ import datetime
 import typing
 import tqdm
 from calamar_backend import errors
-from calamar_backend.price import get_price as yf_get_price
+from calamar_backend.price import download_price as yf_get_price
 from calamar_backend.maps import TickerMap
 from calamar_backend.interface import BankStatement, IndexNav, TradeNav, Time
 

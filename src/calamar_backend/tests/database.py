@@ -27,7 +27,7 @@ def test_create_index_nav_table() -> bool:
         db_ = db.Database()
         db_.create_index_nav_table(ticker)
         cur = db_.conn.cursor()
-        cur.execute(f"SELECT * FROM {ticker}_index_nav LIMIT 1")
+        cur.execute(f"SELECT Date, units, nav FROM {ticker}_index_nav LIMIT 5")
         rows = cur.fetchall()
         print(f"\ntest_create_index_nav_table_results: {rows}")
 
@@ -43,7 +43,9 @@ def test_create_trade_report_table() -> bool:
         db_ = db.Database()
         db_.create_trade_report_table()
         cur = db_.conn.cursor()
-        cur.execute(f'SELECT ISIN, Quantity, "Trade Date"  FROM trade_report LIMIT 2')
+        cur.execute(
+            f'SELECT ISIN, Quantity, "Trade Date"  FROM trade_report LIMIT 2'
+        )
         rows = cur.fetchall()
         print(f"\ntest_create_trade_report_table_results: {rows}")
 
@@ -103,8 +105,12 @@ def main():
 
     print("\n\n==== Database test results ====")
     print(f"test_create_index_table: {emoji(tst_create_index_table)}")
-    print(f"test_create_trade_report_table: {emoji(tst_create_trade_report_table)}")
-    print(f"test_create_bank_statement_table: {emoji(tst_create_bank_statement_table)}")
+    print(
+        f"test_create_trade_report_table: {emoji(tst_create_trade_report_table)}"
+    )
+    print(
+        f"test_create_bank_statement_table: {emoji(tst_create_bank_statement_table)}"
+    )
     print(
         f"test_get_day_zero_bank_statements: {emoji(tst_get_day_zero_bank_statements)}"
     )

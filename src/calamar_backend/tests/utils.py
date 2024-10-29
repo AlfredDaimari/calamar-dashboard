@@ -3,6 +3,7 @@ import datetime
 from calamar_backend import interface as inf
 from calamar_backend import database as db
 
+
 def test_get_current_date() -> bool:
     utc_now = datetime.datetime.utcnow().replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -41,7 +42,7 @@ def main():
     print(f"test_get_current_date: {emoji(tst_get_current_date)}")
 
     print("\n")
-    print(f"Total elapsed time for database tests: {elapsed_time}")
+    print(f"Total elapsed time for utils tests: {elapsed_time}")
     print("\n")
 
 

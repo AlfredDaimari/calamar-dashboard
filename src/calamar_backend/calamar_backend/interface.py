@@ -49,6 +49,27 @@ class Time:
             yield current_date
             current_date += datetime.timedelta(days=1)
 
+    @staticmethod
+    def date_fy(date: datetime.datetime) -> int:
+        """
+        Return the financial year of date
+        """
+
+        if date.month < 4:
+            return date.year
+        else:
+            return date.year + 1
+
+    @staticmethod
+    def date_fy_start_end(date: datetime.datetime) -> tuple[str, str]:
+        """
+        Returns the start and end date of financial year
+        """
+        if date.month < 4:
+            return (f"{date.year - 1}-04-01", f"{date.year}-03-31")
+        else:
+            return (f"{date.year}-04-01", f"{date.year + 1}-3-31")
+
 
 class BankStatement(Time):
     def __init__(
