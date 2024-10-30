@@ -4,7 +4,18 @@ Utility Classes
     - BankStatement: Zerodha bank statement representation
     - IndexNav: index nav on a trading day
     - TradeNav: portfolio nav on a trading day
+
+Future TODOs:
+    - Security Trade & Bank Statement classes are similar, join them
+      with an interface
+    - Separate logic into: 
+        Security (manage trade report),
+        BankStatement (handles zerodha bank statements)
+        Index (handles index nav table)
+        Portfolio (handles portfolio)
+        Holding (handles portfolio nav table)
 """
+
 import datetime
 import sqlite3
 import pandas as pd
@@ -298,6 +309,7 @@ class SecurityTrade(Time):
         self,
         trade_date: str,
         symbol: str,
+        isin: str,
         exchange: str,
         type_: str,
         quantity: int,
@@ -305,6 +317,7 @@ class SecurityTrade(Time):
         Time.__init__(self, trade_date)
 
         self.ticker = symbol
+        self.isin = isin
         self.exchange = exchange
         self.is_buy: bool = True if type_ == "buy" else False
         self.quantity = quantity
@@ -315,31 +328,62 @@ class SecurityTrade(Time):
     @staticmethod
     def get_query(date: datetime.datetime):
         return (
-            'SELECT "Trade Date", Symbol, Exchange, "Trade Type","quantity" '
+            'SELECT "Trade Date", Symbol, ISIN, Exchange, "Trade Type","quantity" '
             'FROM trade_report WHERE "Trade Date" = '
             f"""'{Time.convert_date_to_strf(date)}'"""
         )
 
     @staticmethod
-    def create_table_query(clean: bool) -> str:
+    def get_portfolio_report_query(date: datetime.datetime):
         return (
-            f"""CREATE TABLE {'cln' if clean else 'unc'}_portfolio_report """
-            '("Date" DATE, "ticker" TEXT, "quantity" REAL)'
+            f"SELECT * FROM portfolio_report "
+            f"WHERE Date = '{Time.convert_date_to_strf(date)}'"
+        )
+
+    @staticmethod
+    def create_table_query() -> str:
+        return (
+            f"""CREATE TABLE portfolio_report """
+            '("Date" DATE, "ticker" TEXT, "isin" TEXT,"quantity" REAL)'
         )
 
     @staticmethod
     def day_zero_query() -> str:
         return (
-            'SELECT "Trade Date",Symbol,Exchange,"Trade Type","quantity" '
+            'SELECT "Trade Date",Symbol, ISIN, Exchange,"Trade Type","quantity" '
             "FROM trade_report LIMIT 1"
         )
 
     @staticmethod
-    def create_security_trade(args: tuple[str, str, str, str, int]):
+    def create_security_trade(args: tuple[str, str, str, str, str, int]):
         """
         Returns Security Trade object
         """
         return SecurityTrade(*args)
+
+    def insert_table_query(self, date: datetime.datetime) -> str:
+        return (
+            "INSERT INTO portfolio_report (Date, ticker, isin, quantity) VALUES"
+            f"""('{Time.convert_date_to_strf(date)}','{self.ticker}',"""
+            f"'{self.isin}', {self.quantity})"
+        )
+
+
+class Holding:
+    """
+    Holding information from portfolio report
+    """
+
+    def __init__(
+        self, date: datetime.datetime, _: str, isin: str, quantity: int
+    ):
+        self.date = date
+        self.ticker = isin
+        self.quantity = quantity
+
+    @staticmethod
+    def create_holdings(holding: tuple[datetime.datetime, str, str, int]):
+        return Holding(*holding)
 
 
 class TradeNav(Time):
@@ -367,19 +411,34 @@ class TradeNav(Time):
             else:
                 self.portfolio[trade.ticker].quantity -= trade.quantity
         else:
+            trade.quantity = trade.quantity if trade.is_buy else -trade.quantity
             self.portfolio[trade.ticker] = trade
+
+    def remove_neg_quantity(self) -> None:
+        """
+        Removes negative quantities from portfolio
+        """
+        neg_tickers = []
+        for ticker in self.portfolio:
+            if self.portfolio[ticker].quantity <= 0:
+                neg_tickers.append(ticker)
+
+        for ticker in neg_tickers:
+            self.portfolio.pop(ticker)
 
     def calculate_nav(self):
         pass
 
-    def insert_table_query(self):
+    def insert_to_nav_table(
+        self, conn: sqlite3.Connection, date: datetime.datetime
+    ) -> None:
         pass
 
-    def write_unclean_table(self):
-        pass
-
-    def write_clean_table(self):
-        pass
+    def write_to_portfolio_table(self, conn: sqlite3.Connection) -> None:
+        cursor = conn.cursor()
+        for ticker in self.portfolio:
+            cursor.execute(self.portfolio[ticker].insert_table_query(self.date))
+        conn.commit()
 
     def __str__(self) -> str:
         st = ""

@@ -203,35 +203,57 @@ class Database:
 
     def create_portfolio_nav_table(self) -> TradeNav:
         """
-        - Create unclean temporary table
-        - Calculate the error trades
-        - Calculate the clean trade table
-        - Remove the unclean table
-        - Using clean table, calculate the net asset value
+        - Create portfolio report table
+        - Write to portfolio report table
+        - Remove problematic securities
+        - Calculate NAV using portfolio report table
         """
-        # create table, unclean and clean
+        lst_date = Time.get_current_date()
+        st_date = None
+
+        # create portfolio table
         cursor = self.conn.cursor()
-        cursor.execute("DROP TABLE IF EXISTS unc_portfolio_report")
-        cursor.execute("DROP TABLE IF EXISTS cln_portfolio_report")
-        cursor.execute(SecurityTrade.create_table_query(False))
-        cursor.execute(SecurityTrade.create_table_query(True))
-        cursor.execute(
-            'CREATE INDEX idx_date_unc ON unc_portfolio_report("Date")'
-        )
-        cursor.execute(
-            'CREATE INDEX idx_date_cln ON cln_portfolio_report("Date")'
-        )
+        cursor.execute("DROP TABLE IF EXISTS portfolio_report")
+        cursor.execute(SecurityTrade.create_table_query())
+        cursor.execute('CREATE INDEX idx_date_port ON portfolio_report("Date")')
         self.conn.commit()
 
         # day zero trades
         trades = self.get_day_zero_trades()
-        trade_nav_unc = TradeNav(trades[0].date)
+        st_date = trades[0].date
+        trade_nav_unc = TradeNav(st_date)
         for trade in trades:
             trade_nav_unc.add_to_portfolio(trade)
 
-        # day zero portfolio
-        # run from day zero to today - 1
+        # add day zero portfolio
+        trade_nav_unc.write_to_portfolio_table(self.conn)
+
+        # run from (day zero + 1) to today - 1
+        st_date += datetime.timedelta(1)
+        with tqdm.tqdm(
+            total=(lst_date - st_date).days, desc="creating portfolio report"
+        ) as pbar:
+            """
+            - get trades on date
+            - add trades to the TradeNav
+            - write TradeNav to unclean table
+            """
+            for day in Time.range_date(st_date, lst_date):
+                trades = self.get_trades(day)
+
+                for trade in trades:
+                    trade_nav_unc.add_to_portfolio(trade)
+
+                # write to table
+                trade_nav_unc.date = day
+                trade_nav_unc.remove_neg_quantity()
+                trade_nav_unc.write_to_portfolio_table(self.conn)
+                pbar.update(1)
+
+        # reset to day one for clean portfolio report
+        st_date -= datetime.timedelta(1)
         # move correct data to cln_portfolio_report
+        # drop table unclean portfolio report
         # using cln_portfolio_report, calculate nav
         return trade_nav_unc
 
@@ -275,6 +297,15 @@ class Database:
         cursor.execute(BankStatement.get_bnk_statement_query(date))
         rows = cursor.fetchall()
         return list(map(BankStatement.create_bnk_statement, rows))
+
+    def get_trades(self, date: datetime.datetime) -> list[SecurityTrade]:
+        """
+        Get all trades on :parameter date
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(SecurityTrade.get_query(date))
+        rows = cursor.fetchall()
+        return list(map(SecurityTrade.create_security_trade, rows))
 
     def get_day_zero_bank_statements(self) -> list[BankStatement]:
         day_zero = self.__get_day_zero_bnk_state()
