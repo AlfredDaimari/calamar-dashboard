@@ -211,15 +211,15 @@ class Database:
         """
         # create table, unclean and clean
         cursor = self.conn.cursor()
-        cursor.execute(f"DROP TABLE IF EXISTS unc_portfolio_report")
-        cursor.execute(f"DROP TABLE IF EXISTS cln_portfolio_report")
+        cursor.execute("DROP TABLE IF EXISTS unc_portfolio_report")
+        cursor.execute("DROP TABLE IF EXISTS cln_portfolio_report")
         cursor.execute(SecurityTrade.create_table_query(False))
         cursor.execute(SecurityTrade.create_table_query(True))
         cursor.execute(
-            f"""CREATE INDEX idx_date_unc ON unc_portfolio_report("Date")"""
+            'CREATE INDEX idx_date_unc ON unc_portfolio_report("Date")'
         )
         cursor.execute(
-            f"""CREATE INDEX idx_date_cln ON cln_portfolio_report("Date")"""
+            'CREATE INDEX idx_date_cln ON cln_portfolio_report("Date")'
         )
         self.conn.commit()
 
