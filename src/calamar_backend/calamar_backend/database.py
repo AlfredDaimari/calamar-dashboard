@@ -22,7 +22,8 @@ import tqdm
 from calamar_backend import errors
 from calamar_backend.price import download_price as yf_get_price
 from calamar_backend.maps import TickerMap
-from calamar_backend.interface import BankStatement, IndexNav, TradeNav, Time
+from calamar_backend.interface import BankStatement, IndexNav, SecurityTrade
+from calamar_backend.interface import TradeNav, Time
 
 
 class Database:
@@ -165,7 +166,6 @@ class Database:
 
                 try:
                     bnk_statements = self.get_bank_statements(day)
-
                     # adding bank statements
                     for bnk_st in bnk_statements:
                         ticker_index_nav.add_to_nav(bnk_st)
@@ -190,6 +190,7 @@ class Database:
                         continue
 
                 except Exception as e:
+                    print("i", day)
                     raise Exception(
                         f"{datetime.datetime.now()}:"
                         "db:create_index_nav_table: "
@@ -200,8 +201,39 @@ class Database:
                     # pbar update
                     pbar.update(1)
 
-    def create_trade_nav_table(self) -> None:
-        pass
+    def create_portfolio_nav_table(self) -> TradeNav:
+        """
+        - Create unclean temporary table
+        - Calculate the error trades
+        - Calculate the clean trade table
+        - Remove the unclean table
+        - Using clean table, calculate the net asset value
+        """
+        # create table, unclean and clean
+        cursor = self.conn.cursor()
+        cursor.execute(f"DROP TABLE IF EXISTS unc_portfolio_report")
+        cursor.execute(f"DROP TABLE IF EXISTS cln_portfolio_report")
+        cursor.execute(SecurityTrade.create_table_query(False))
+        cursor.execute(SecurityTrade.create_table_query(True))
+        cursor.execute(
+            f"""CREATE INDEX idx_date_unc ON unc_portfolio_report("Date")"""
+        )
+        cursor.execute(
+            f"""CREATE INDEX idx_date_cln ON cln_portfolio_report("Date")"""
+        )
+        self.conn.commit()
+
+        # day zero trades
+        trades = self.get_day_zero_trades()
+        trade_nav_unc = TradeNav(trades[0].date)
+        for trade in trades:
+            trade_nav_unc.add_to_portfolio(trade)
+
+        # day zero portfolio
+        # run from day zero to today - 1
+        # move correct data to cln_portfolio_report
+        # using cln_portfolio_report, calculate nav
+        return trade_nav_unc
 
     # pandas utility functions
     def clean_zerodha_bank_statement_file(
@@ -217,12 +249,21 @@ class Database:
     # database utility functions
     def __get_day_zero_bnk_state(self) -> str:
         """
-        Returns day zero for bank settlements as string
+        Returns day zero for bank settlements as a string
         """
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM bank_statement LIMIT 1")
         rows = cursor.fetchall()
-        return BankStatement.create_bnk_statement(rows[0]).get_date_strf()
+        return BankStatement(*rows[0]).get_date_strf()
+
+    def __get_day_zero_trade_report(self) -> str:
+        """
+        Returns day zero for trading as a string
+        """
+        cursor = self.conn.cursor()
+        cursor.execute(SecurityTrade.day_zero_query())
+        rows = cursor.fetchall()
+        return SecurityTrade(*rows[0]).get_date_strf()
 
     def get_bank_statements(
         self, date: datetime.datetime
@@ -245,3 +286,15 @@ class Database:
         rows = cursor.fetchall()
 
         return list(map(BankStatement.create_bnk_statement, rows))
+
+    def get_day_zero_trades(self) -> list[SecurityTrade]:
+        day_zero = self.__get_day_zero_trade_report()
+        cursor = self.conn.cursor()
+        cursor.execute(
+            SecurityTrade.get_query(
+                datetime.datetime.strptime(day_zero, Time.DATE_FORMAT)
+            )
+        )
+        rows = cursor.fetchall()
+
+        return list(map(SecurityTrade.create_security_trade, rows))

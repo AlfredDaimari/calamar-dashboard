@@ -7,7 +7,7 @@ def test_create_index_table() -> bool:
 
     try:
         db_ = db.Database()
-        db_.create_index_table(ticker, "2019-12-10", "2024-10-25")
+        # db_.create_index_table(ticker, "2019-12-10", "2024-10-25")
         cur = db_.conn.cursor()
         cur.execute(f"SELECT Date, Close FROM {ticker}_price LIMIT 2")
         rows = cur.fetchall()
@@ -84,6 +84,19 @@ def test_get_day_zero_bank_statements() -> bool:
     return True
 
 
+def test_create_portfolio_nav_table() -> bool:
+    try:
+        db_ = db.Database()
+        trade_nav = db_.create_portfolio_nav_table()
+        print(f"\ntest_create_portfolio_nav_table_results: {str(trade_nav)}")
+
+    except Exception as e:
+        print(e)
+        return False
+
+    return True
+
+
 def main():
     print("==== Database testing ====")
     OKGREEN = "\033[92m"
@@ -100,6 +113,7 @@ def main():
     tst_create_bank_statement_table: bool = test_create_bank_statment_table()
     tst_get_day_zero_bank_statements: bool = test_get_day_zero_bank_statements()
     tst_create_index_nav_table: bool = test_create_index_nav_table()
+    tst_create_portfolio_nav_table: bool = test_create_portfolio_nav_table()
     end_time = timeit.default_timer()
     elapsed_time = end_time - start_time
 
@@ -115,6 +129,9 @@ def main():
         f"test_get_day_zero_bank_statements: {emoji(tst_get_day_zero_bank_statements)}"
     )
     print(f"test_create_index_nav_table: {emoji(tst_create_index_nav_table)}")
+    print(
+        f"test_create_portfolio_nav_table: {emoji(tst_create_portfolio_nav_table)}"
+    )
     print("\n")
     print(f"Total elapsed time for database tests: {elapsed_time}")
     print("\n")

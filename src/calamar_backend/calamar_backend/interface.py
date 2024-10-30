@@ -103,15 +103,6 @@ class BankStatement(Time):
         self.net_balance = net_balance
 
     @staticmethod
-    def create_bnk_statement(
-        db_tuple: tuple[str, str, str, str, float, float, float]
-    ):
-        """
-        Converts tuple from sqlite3 into BankSettlement object
-        """
-        return BankStatement(*db_tuple)
-
-    @staticmethod
     def get_bnk_statement_query(date: datetime.datetime) -> str:
         date_str = Time.convert_date_to_strf(date)
         return (
@@ -132,6 +123,15 @@ class BankStatement(Time):
         else:
             assert self.debit > 0
             return (False, self.debit)
+
+    @staticmethod
+    def create_bnk_statement(
+        args: tuple[str, str, str, str, float, float, float]
+    ):
+        """
+        Converts tuple from sqlite3 into BankSettlement object
+        """
+        return BankStatement(*args)
 
     @staticmethod
     def is_bank_statement(row: pd.Series | dict) -> bool:
@@ -282,11 +282,107 @@ class IndexNav(Time):
         )
 
 
+class SecurityTrade(Time):
+    """
+    Structure: {
+    cls_param: table column name
+    trade_date: Trade Date
+    ticker: Symbol
+    exchange: Exchange
+    type_: Trade Type
+    quantity: Quantity
+    }
+    """
+
+    def __init__(
+        self,
+        trade_date: str,
+        symbol: str,
+        exchange: str,
+        type_: str,
+        quantity: int,
+    ):
+        Time.__init__(self, trade_date)
+
+        self.ticker = symbol
+        self.exchange = exchange
+        self.is_buy: bool = True if type_ == "buy" else False
+        self.quantity = quantity
+
+    def __str__(self) -> str:
+        return f"ticker: {self.ticker} q:{self.quantity} buy:{self.is_buy}"
+
+    @staticmethod
+    def get_query(date: datetime.datetime):
+        return (
+            'SELECT "Trade Date", Symbol, Exchange, "Trade Type","quantity" '
+            'FROM trade_report WHERE "Trade Date" = '
+            f"""'{Time.convert_date_to_strf(date)}'"""
+        )
+
+    @staticmethod
+    def create_table_query(clean: bool) -> str:
+        return (
+            f"""CREATE TABLE {'cln' if clean else 'unc'}_portfolio_report """
+            '("Date" DATE, "ticker" TEXT, "quantity" REAL)'
+        )
+
+    @staticmethod
+    def day_zero_query() -> str:
+        return (
+            'SELECT "Trade Date",Symbol,Exchange,"Trade Type","quantity" '
+            "FROM trade_report LIMIT 1"
+        )
+
+    @staticmethod
+    def create_security_trade(args: tuple[str, str, str, str, int]):
+        """
+        Returns Security Trade object
+        """
+        return SecurityTrade(*args)
+
+
 class TradeNav(Time):
-    def __init__(self):
+    """
+    Structure:
+    {
+        Date:
+        nav: net asset value
+        ticker:
+    }
+    """
+
+    def __init__(self, date: str | datetime.datetime):
+        if isinstance(date, str):
+            Time.__init__(self, date)
+        else:
+            self.date = date
+        self.nav = 0
+        self.portfolio: typing.Dict[str, SecurityTrade] = {}
+
+    def add_to_portfolio(self, trade: SecurityTrade) -> None:
+        if trade.ticker in self.portfolio:
+            if trade.is_buy:
+                self.portfolio[trade.ticker].quantity += trade.quantity
+            else:
+                self.portfolio[trade.ticker].quantity -= trade.quantity
+        else:
+            self.portfolio[trade.ticker] = trade
+
+    def calculate_nav(self):
         pass
 
-
-class SecurityTrade:
-    def __init__(self):
+    def insert_table_query(self):
         pass
+
+    def write_unclean_table(self):
+        pass
+
+    def write_clean_table(self):
+        pass
+
+    def __str__(self) -> str:
+        st = ""
+        for trade in self.portfolio:
+            st += "\n" + str(self.portfolio[trade])
+        return st

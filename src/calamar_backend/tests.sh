@@ -11,7 +11,7 @@ export ZERODHA_BANK_STATEMENT=/home/alfred/Code/projects/calamar_dashboard/data/
 export CALAMAR_CSV_DB=/home/alfred/Code/projects/calamar_dashboard/src/.temp
 
 # add tests to run
-tests=(tests/database.py tests/utils.py tests/database_csv.py)
+tests=(tests/database.py tests/database_csv.py tests/utils.py)
 for test in ${tests[@]}
 do
   echo "running ${test}"
