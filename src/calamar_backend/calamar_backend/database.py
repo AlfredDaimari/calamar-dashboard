@@ -19,11 +19,18 @@ import os
 import datetime
 import typing
 import tqdm
+
+import calamar_backend.time as time
+import calamar_backend.time as time
+from calamar_backend.table_interface import (
+    BankStatement as BNK,
+    IndexNAV,
+    TradeReport,
+    Index,
+    Portfolio,
+)
 from calamar_backend import errors
-from calamar_backend.price import download_price as yf_get_price
 from calamar_backend.maps import TickerMap
-from calamar_backend.interface import BankStatement, IndexNav, SecurityTrade
-from calamar_backend.interface import TradeNav, Time
 
 
 class Database:
@@ -49,98 +56,39 @@ class Database:
         :parameter start: start date for query
         :parameter end: end date for query
         """
-        yf_ticker = self.__tm.get(ticker)
-        df: pd.DataFrame = yf_get_price(yf_ticker, start, end)
-        df.to_sql(
-            f"{ticker}_price",
-            self.conn,
-            index=True,
-            if_exists="replace",
-            index_label="Date",
-        )
+        Index.set(ticker)
+        Index.set_date(start, end)
+        Index.create_new_table(self.conn)
 
     def create_bank_statment_table(self) -> None:
-        bank_statement_file = os.getenv("ZERODHA_BANK_STATEMENT")
-
-        if bank_statement_file is None:
-            raise Exception(
-                f"{str(datetime.datetime.now())}: "
-                "environment variable 'ZERODHA_BANK_STATEMENT' not set"
-            )
-
-        bank_statement_df = pd.read_csv(bank_statement_file)
-
-        # clean zerodha bank statement file
-        bank_statement_df = bank_statement_df.dropna()
-        cln_df = self.clean_zerodha_bank_statement_file(bank_statement_df)
-
-        # set posting_date as index
-        cln_df["posting_date"] = pd.to_datetime(cln_df["posting_date"])
-        cln_df = cln_df.set_index("posting_date")
-        cln_df = cln_df.sort_values(by="posting_date")
-
-        cln_df.to_sql(
-            "bank_statement",
-            self.conn,
-            index=True,
-            if_exists="replace",
-            index_label="posting_date",
-        )
+        BNK.create_new_table(self.conn)
 
     def create_trade_report_table(self) -> None:
-        """
-        Inserts data in file $ZERODHA_TRADE_REPORT into trade report table
-        """
-        trade_report_file = os.getenv("ZERODHA_TRADE_REPORT")
-
-        if trade_report_file is None:
-            raise Exception(
-                f"{str(datetime.datetime.now())}: "
-                "environment variable 'ZERODHA_TRADE_REPORT' not set"
-            )
-        df = pd.read_csv(trade_report_file)
-        df = df.dropna()
-
-        # set date as index
-        df["Trade Date"] = pd.to_datetime(df["Trade Date"])
-        df = df.set_index("Trade Date")
-        df = df.sort_values(by="Trade Date")
-
-        df.to_sql(
-            "trade_report",
-            self.conn,
-            index=True,
-            if_exists="replace",
-            index_label="Trade Date",
-        )
+        TradeReport.create_new_table(self.conn)
 
     def create_index_nav_table(self, ticker: str) -> None:
         """
         - Setup nav for index on day zero till today - 1
         - Iterate through each day, create index nav on every trading day
         """
-        index_nav_table_last_date = Time.get_current_date()
+        index_nav_table_last_date = time.get_current_date()
 
-        # create index nav table
-        cursor = self.conn.cursor()
-        cursor.execute(f"DROP TABLE IF EXISTS {ticker}_index_nav")
-        cursor.execute(IndexNav.create_table_query(ticker))
-        cursor.execute(
-            f"""CREATE INDEX idx_date ON {ticker}_index_nav("Date")"""
-        )
+        # create new table
+        IndexNAV.set(ticker)
+        IndexNAV.create_new_table(self.conn)
+        IndexNAV.create_index(self.conn)
 
-        day_zero_bnk_statements = self.get_day_zero_bank_statements()
-        ticker_index_nav = IndexNav(
-            day_zero_bnk_statements[-1].date, ticker, 0.0, 0.0
-        )
+        # add day zero bank statements
+        day_zero_bnk_statements = BNK.get_day_zero(self.conn)
+        date = time.convert_date_to_strf(day_zero_bnk_statements[-1].date)
 
+        ticker_index_nav = IndexNAV(date, ticker, 0.0, 0.0)
         for bnk_st in day_zero_bnk_statements:
             ticker_index_nav.add_to_nav(bnk_st)
 
         # calculate day zero index nav
         ticker_index_nav.calculate_index_nav(self.conn)
-        cursor.execute(ticker_index_nav.insert_table_query())
-        self.conn.commit()
+        ticker_index_nav.insert(self.conn)
         ticker_index_nav.reset()
 
         # add every day from day zero to current date to the index nav
@@ -161,11 +109,12 @@ class Database:
             - write to database
             - reset ticker_index_nav for next day
             """
-            for day in Time.range_date(st_date, index_nav_table_last_date):
+            for day in time.range_date(st_date, index_nav_table_last_date):
                 bnk_statements = []
 
                 try:
-                    bnk_statements = self.get_bank_statements(day)
+                    bnk_statements = BNK.get(self.conn, day)
+
                     # adding bank statements
                     for bnk_st in bnk_statements:
                         ticker_index_nav.add_to_nav(bnk_st)
@@ -173,9 +122,7 @@ class Database:
                     # setting new date
                     ticker_index_nav.date = day
                     ticker_index_nav.calculate_index_nav(self.conn)
-                    query = ticker_index_nav.insert_table_query()
-                    cursor.execute(query)
-                    self.conn.commit()
+                    ticker_index_nav.insert(self.conn)
 
                     # reset calculation for the next day
                     ticker_index_nav.reset()
@@ -201,32 +148,27 @@ class Database:
                     # pbar update
                     pbar.update(1)
 
-    def create_portfolio_nav_table(self) -> TradeNav:
+    def create_portfolio_table(self) -> None:
         """
         - Create portfolio report table
         - Write to portfolio report table
         - Remove problematic securities
-        - Calculate NAV using portfolio report table
         """
-        lst_date = Time.get_current_date()
+        lst_date = time.get_current_date()
         st_date = None
 
         # create portfolio table
-        cursor = self.conn.cursor()
-        cursor.execute("DROP TABLE IF EXISTS portfolio_report")
-        cursor.execute(SecurityTrade.create_table_query())
-        cursor.execute('CREATE INDEX idx_date_port ON portfolio_report("Date")')
-        self.conn.commit()
+        Portfolio.create_new_table(self.conn)
+        Portfolio.create_index(self.conn)
 
         # day zero trades
-        trades = self.get_day_zero_trades()
+        trades: list[TradeReport] = TradeReport.get_day_zero(self.conn)
         st_date = trades[0].date
-        trade_nav_unc = TradeNav(st_date)
         for trade in trades:
-            trade_nav_unc.add_to_portfolio(trade)
+            Portfolio.add_to_portfolio(trade)
 
         # add day zero portfolio
-        trade_nav_unc.write_to_portfolio_table(self.conn)
+        Portfolio.insert_all(self.conn, time.convert_date_to_strf(st_date))
 
         # run from (day zero + 1) to today - 1
         st_date += datetime.timedelta(1)
@@ -235,97 +177,19 @@ class Database:
         ) as pbar:
             """
             - get trades on date
-            - add trades to the TradeNav
-            - write TradeNav to unclean table
+            - add trades to the portfolio table
+            - delete problematic securities from table
             """
-            for day in Time.range_date(st_date, lst_date):
-                trades = self.get_trades(day)
+            for day in time.range_date(st_date, lst_date):
+                trades = TradeReport.get(self.conn, day)
 
                 for trade in trades:
-                    trade_nav_unc.add_to_portfolio(trade)
+                    Portfolio.add_to_portfolio(trade)
 
                 # write to table
-                trade_nav_unc.date = day
-                trade_nav_unc.remove_neg_quantity()
-                trade_nav_unc.write_to_portfolio_table(self.conn)
+                Portfolio.insert_all(self.conn, time.convert_date_to_strf(day))
                 pbar.update(1)
 
         # reset to day one for clean portfolio report
         st_date -= datetime.timedelta(1)
-        # move correct data to cln_portfolio_report
-        # drop table unclean portfolio report
-        # using cln_portfolio_report, calculate nav
-        return trade_nav_unc
-
-    # pandas utility functions
-    def clean_zerodha_bank_statement_file(
-        self, df: pd.DataFrame
-    ) -> pd.DataFrame:
-        df["ind_txn"] = df.apply(BankStatement.is_bank_statement, axis=1)
-        # deal with error code later
-        df = df[df["ind_txn"]]
-        df = df.drop("ind_txn", axis=1)
-
-        return df
-
-    # database utility functions
-    def __get_day_zero_bnk_state(self) -> str:
-        """
-        Returns day zero for bank settlements as a string
-        """
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM bank_statement LIMIT 1")
-        rows = cursor.fetchall()
-        return BankStatement(*rows[0]).get_date_strf()
-
-    def __get_day_zero_trade_report(self) -> str:
-        """
-        Returns day zero for trading as a string
-        """
-        cursor = self.conn.cursor()
-        cursor.execute(SecurityTrade.day_zero_query())
-        rows = cursor.fetchall()
-        return SecurityTrade(*rows[0]).get_date_strf()
-
-    def get_bank_statements(
-        self, date: datetime.datetime
-    ) -> list[BankStatement]:
-        """
-        Get bank statements on :parameter date
-        """
-        cursor = self.conn.cursor()
-        cursor.execute(BankStatement.get_bnk_statement_query(date))
-        rows = cursor.fetchall()
-        return list(map(BankStatement.create_bnk_statement, rows))
-
-    def get_trades(self, date: datetime.datetime) -> list[SecurityTrade]:
-        """
-        Get all trades on :parameter date
-        """
-        cursor = self.conn.cursor()
-        cursor.execute(SecurityTrade.get_query(date))
-        rows = cursor.fetchall()
-        return list(map(SecurityTrade.create_security_trade, rows))
-
-    def get_day_zero_bank_statements(self) -> list[BankStatement]:
-        day_zero = self.__get_day_zero_bnk_state()
-
-        cursor = self.conn.cursor()
-        cursor.execute(
-            f"SELECT * FROM bank_statement WHERE posting_date ='{day_zero}'",
-        )
-        rows = cursor.fetchall()
-
-        return list(map(BankStatement.create_bnk_statement, rows))
-
-    def get_day_zero_trades(self) -> list[SecurityTrade]:
-        day_zero = self.__get_day_zero_trade_report()
-        cursor = self.conn.cursor()
-        cursor.execute(
-            SecurityTrade.get_query(
-                datetime.datetime.strptime(day_zero, Time.DATE_FORMAT)
-            )
-        )
-        rows = cursor.fetchall()
-
-        return list(map(SecurityTrade.create_security_trade, rows))
+        # drop problematic rows from portfolio report

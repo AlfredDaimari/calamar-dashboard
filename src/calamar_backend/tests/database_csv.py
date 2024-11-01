@@ -1,6 +1,6 @@
 import timeit
 import os
-from calamar_backend import interface as inf
+import calamar_backend.time as time
 from calamar_backend import database_csv as db
 
 
@@ -9,15 +9,15 @@ def test_read() -> bool:
         ticker = "reliance"
         db_ = db.DatabaseCSV(3)
         dates = {
-            "d24": inf.Time("2023-10-05 00:00:00"),
-            "d23": inf.Time("2022-10-06 00:00:00"),
-            "d22": inf.Time("2021-10-04 00:00:00"),
-            "d21": inf.Time("2020-10-07 00:00:00"),
+            "d24": time.convert_date_strf_to_strp("2023-10-05 00:00:00"),
+            "d23": time.convert_date_strf_to_strp("2022-10-06 00:00:00"),
+            "d22": time.convert_date_strf_to_strp("2021-10-04 00:00:00"),
+            "d21": time.convert_date_strf_to_strp("2020-10-07 00:00:00"),
         }
 
         # removing files for better tests
         for key in dates:
-            fy: int = inf.Time.date_fy(dates[key].date)
+            fy: int = time.date_fy(dates[key])
             file_path = db_.get_csv_file_path((ticker, fy))
 
             if os.path.exists(file_path):
@@ -27,13 +27,13 @@ def test_read() -> bool:
         output = []
         dates_keys = list(dates.keys())
         for i in range(len(dates_keys)):
-            [loc, serie] = db_.read(ticker, dates[dates_keys[i]].date)
+            [loc, serie] = db_.read(ticker, dates[dates_keys[i]])
             output.append(serie)
             assert loc == -1  # all files show be downloaded from yf
 
-        [loc, _] = db_.read(ticker, dates["d21"].date)
+        [loc, _] = db_.read(ticker, dates["d21"])
         assert loc == 2
-        [loc, _] = db_.read(ticker, dates["d24"].date)
+        [loc, _] = db_.read(ticker, dates["d24"])
         assert loc == -1
 
         print(f"\ntest_read_results:{output}")

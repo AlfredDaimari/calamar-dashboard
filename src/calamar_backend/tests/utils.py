@@ -1,6 +1,6 @@
 import timeit
 import datetime
-from calamar_backend import interface as inf
+import calamar_backend.time as time
 from calamar_backend import database as db
 
 
@@ -12,9 +12,9 @@ def test_get_current_date() -> bool:
     bl = False
 
     try:
-        cur_date = inf.Time.get_current_date()
-        cur_date_str = inf.Time.convert_date_to_strf(cur_date)
-        bl = cur_date_str == utc_now_minus_1.strftime(inf.Time.DATE_FORMAT)
+        cur_date = time.get_current_date()
+        cur_date_str = time.convert_date_to_strf(cur_date)
+        bl = cur_date_str == utc_now_minus_1.strftime(time.DATE_FORMAT)
         print(f"\ntest_get_current_date_results: {cur_date}")
 
     except Exception as e:

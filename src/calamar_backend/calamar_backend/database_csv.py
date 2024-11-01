@@ -12,7 +12,7 @@ import os
 import pathlib
 from calamar_backend.price import download_price as yf_download_price
 from calamar_backend.maps import TickerMap
-from calamar_backend.interface import Time
+import calamar_backend.time as time
 from calamar_backend.errors import DayClosePriceNotFoundError
 
 
@@ -105,7 +105,7 @@ class DatabaseCSV:
         Read data from yahoo finance
         """
         [ticker, fy] = ticker_fy
-        [start, end] = Time.date_in_fy_start_end(fy)
+        [start, end] = time.date_in_fy_start_end(fy)
 
         df = yf_download_price(self.map.get(ticker), start, end)
         df.to_csv(
@@ -133,7 +133,7 @@ class DatabaseCSV:
         """
 
         loc: int = -1  # location of DF in LRU
-        fy = Time.date_fy(date)
+        fy = time.date_fy(date)
         ret: pd.Series
 
         if self.__file_exists((ticker, fy)):
@@ -147,7 +147,7 @@ class DatabaseCSV:
             df = self.__read_df_from_yf((ticker, fy))
 
         try:
-            ret = df.loc[Time.convert_date_to_strf(date)]
+            ret = df.loc[time.convert_date_to_strf(date)]
 
         except KeyError:
             raise DayClosePriceNotFoundError
@@ -155,7 +155,7 @@ class DatabaseCSV:
         except Exception as e:
             raise Exception(
                 f"{datetime.datetime.now()}: "
-                f"db_csv.read({ticker},{Time.convert_date_to_strf(date)}): "
+                f"db_csv.read({ticker},{time.convert_date_to_strf(date)}): "
                 f"something went wrong - {e}!"
             )
 

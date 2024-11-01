@@ -2,7 +2,7 @@
 import yfinance as yf
 import pandas as pd
 import datetime
-import calamar_backend.interface as inf
+import calamar_backend.time as time
 
 
 def download_price(ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -23,7 +23,7 @@ def download_price(ticker: str, start: str, end: str) -> pd.DataFrame:
     df.columns = df.columns.get_level_values(0)
 
     # create new dates
-    df["new_date"] = df.apply(inf.Time.convert_yf_date_to_strf, axis=1)
+    df["new_date"] = df.apply(time.convert_yf_date_to_strf, axis=1)
     df = df.drop("Date", axis=1)
     df["Date"] = df["new_date"]
     df = df.drop("new_date", axis=1)
