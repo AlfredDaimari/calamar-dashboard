@@ -21,13 +21,16 @@ import typing
 import tqdm
 
 import calamar_backend.time as time
-import calamar_backend.time as time
 from calamar_backend.table_interface import (
     BankStatement as BNK,
     IndexNAV,
     TradeReport,
     Index,
     Portfolio,
+)
+from calamar_backend.table_row_interface import (
+    IndexNAVRow,
+    TradeReportRow,
 )
 from calamar_backend import errors
 from calamar_backend.maps import TickerMap
@@ -50,23 +53,27 @@ class Database:
                 "environment variable 'CALAMAR_DB' not set"
             )
 
-    def create_index_table(self, ticker: str, start: str, end: str) -> None:
+    def create_index_table(self, ticker: str, start: str, end: str) -> Index:
         """
         :parameter ticker: zerodha ticker
         :parameter start: start date for query
         :parameter end: end date for query
         """
-        Index.set(ticker)
-        Index.set_date(start, end)
-        Index.create_new_table(self.conn)
+        index_table = Index(ticker, start, end)
+        index_table.create_new_table(self.conn)
+        return index_table
 
-    def create_bank_statment_table(self) -> None:
-        BNK.create_new_table(self.conn)
+    def create_bank_statment_table(self) -> BNK:
+        bnk_table = BNK()
+        bnk_table.create_new_table(self.conn)
+        return bnk_table
 
-    def create_trade_report_table(self) -> None:
-        TradeReport.create_new_table(self.conn)
+    def create_trade_report_table(self) -> TradeReport:
+        tr_table = TradeReport()
+        tr_table.create_new_table(self.conn)
+        return tr_table
 
-    def create_index_nav_table(self, ticker: str) -> None:
+    def create_index_nav_table(self, ticker: str) -> IndexNAV:
         """
         - Setup nav for index on day zero till today - 1
         - Iterate through each day, create index nav on every trading day
@@ -74,25 +81,28 @@ class Database:
         index_nav_table_last_date = time.get_current_date()
 
         # create new table
-        IndexNAV.set(ticker)
-        IndexNAV.create_new_table(self.conn)
-        IndexNAV.create_index(self.conn)
+        index_nav_table = IndexNAV(ticker)
+        index_nav_table.create_new_table(self.conn)
+        index_nav_table.create_index(self.conn)
+
+        # connect to bank statement table
+        bnk_table = BNK()
 
         # add day zero bank statements
-        day_zero_bnk_statements = BNK.get_day_zero(self.conn)
+        day_zero_bnk_statements = bnk_table.get_day_zero(self.conn)
         date = time.convert_date_to_strf(day_zero_bnk_statements[-1].date)
 
-        ticker_index_nav = IndexNAV(date, ticker, 0.0, 0.0)
+        row_index_nav = IndexNAVRow(date, ticker, 0.0, 0.0, 0.0, 0.0, 0.0)
         for bnk_st in day_zero_bnk_statements:
-            ticker_index_nav.add_to_nav(bnk_st)
+            row_index_nav.add_to_nav(bnk_st)
 
         # calculate day zero index nav
-        ticker_index_nav.calculate_index_nav(self.conn)
-        ticker_index_nav.insert(self.conn)
-        ticker_index_nav.reset()
+        row_index_nav.calculate_index_nav(self.conn)
+        index_nav_table.insert(self.conn, row_index_nav)
+        row_index_nav.reset()
 
         # add every day from day zero to current date to the index nav
-        st_date = ticker_index_nav.date + datetime.timedelta(days=1)
+        st_date = row_index_nav.date + datetime.timedelta(days=1)
         print("\n")
 
         # create progress bar
@@ -113,19 +123,19 @@ class Database:
                 bnk_statements = []
 
                 try:
-                    bnk_statements = BNK.get(self.conn, day)
+                    bnk_statements = bnk_table.get(self.conn, day)
 
                     # adding bank statements
                     for bnk_st in bnk_statements:
-                        ticker_index_nav.add_to_nav(bnk_st)
+                        row_index_nav.add_to_nav(bnk_st)
 
                     # setting new date
-                    ticker_index_nav.date = day
-                    ticker_index_nav.calculate_index_nav(self.conn)
-                    ticker_index_nav.insert(self.conn)
+                    row_index_nav.date = day
+                    row_index_nav.calculate_index_nav(self.conn)
+                    index_nav_table.insert(self.conn, row_index_nav)
 
                     # reset calculation for the next day
-                    ticker_index_nav.reset()
+                    row_index_nav.reset()
 
                 except errors.DayClosePriceNotFoundError:
                     if len(bnk_statements) != 0:
@@ -148,7 +158,9 @@ class Database:
                     # pbar update
                     pbar.update(1)
 
-    def create_portfolio_table(self) -> None:
+        return index_nav_table
+
+    def create_portfolio_table(self) -> Portfolio:
         """
         - Create portfolio report table
         - Write to portfolio report table
@@ -158,17 +170,22 @@ class Database:
         st_date = None
 
         # create portfolio table
-        Portfolio.create_new_table(self.conn)
-        Portfolio.create_index(self.conn)
+        pft_table = Portfolio()
+        pft_table.create_new_table(self.conn)
+        pft_table.create_index(self.conn)
+
+        # connect to trade report table
+        tr_table = TradeReport()
 
         # day zero trades
-        trades: list[TradeReport] = TradeReport.get_day_zero(self.conn)
+        trades: list[TradeReportRow] = tr_table.get_day_zero(self.conn)
         st_date = trades[0].date
+
         for trade in trades:
-            Portfolio.add_to_portfolio(trade)
+            pft_table.add_to_portfolio(trade)
 
         # add day zero portfolio
-        Portfolio.insert_all(self.conn, time.convert_date_to_strf(st_date))
+        pft_table.insert_all(self.conn, time.convert_date_to_strf(st_date))
 
         # run from (day zero + 1) to today - 1
         st_date += datetime.timedelta(1)
@@ -181,15 +198,17 @@ class Database:
             - delete problematic securities from table
             """
             for day in time.range_date(st_date, lst_date):
-                trades = TradeReport.get(self.conn, day)
+                trades = tr_table.get(self.conn, day)
 
                 for trade in trades:
-                    Portfolio.add_to_portfolio(trade)
+                    pft_table.add_to_portfolio(trade)
 
                 # write to table
-                Portfolio.insert_all(self.conn, time.convert_date_to_strf(day))
+                pft_table.insert_all(self.conn, time.convert_date_to_strf(day))
                 pbar.update(1)
 
         # reset to day one for clean portfolio report
         st_date -= datetime.timedelta(1)
         # drop problematic rows from portfolio report
+
+        return pft_table

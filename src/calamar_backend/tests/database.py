@@ -9,17 +9,14 @@ end = "2024-10-25"
 
 
 def test_create_index_table() -> bool:
-    inf.Index.set(ticker)
-    inf.Index.set_date(start, end)
-
     try:
         db_ = db.Database()
-        db_.create_index_table(ticker, start, end)
+        index_table = db_.create_index_table(ticker, start, end)
         rows = []
-        rows += inf.Index.get(
+        rows += index_table.get(
             db_.conn, time.convert_date_strf_to_strp("2019-12-12 00:00:00")
         )
-        rows += inf.Index.get(
+        rows += index_table.get(
             db_.conn, time.convert_date_strf_to_strp("2020-12-15 00:00:00")
         )
         print(f"\ntest_create_index_table_results: {list(map(str, rows))}")
@@ -36,13 +33,12 @@ def test_create_index_nav_table() -> bool:
 
     try:
         db_ = db.Database()
-        inf.IndexNAV.set(ticker)
-        db_.create_index_nav_table(ticker)
+        index_nav_table = db_.create_index_nav_table(ticker)
         rows = []
-        rows += inf.IndexNAV.get(
+        rows += index_nav_table.get(
             db_.conn, time.convert_date_strf_to_strp("2019-12-12 00:00:00")
         )
-        rows += inf.IndexNAV.get(
+        rows += index_nav_table.get(
             db_.conn, time.convert_date_strf_to_strp("2020-12-15 00:00:00")
         )
         print(f"\ntest_create_index_nav_table_results: {list(map(str, rows))}")
@@ -57,12 +53,8 @@ def test_create_index_nav_table() -> bool:
 def test_create_trade_report_table() -> bool:
     try:
         db_ = db.Database()
-        db_.create_trade_report_table()
-        # cur = db_.conn.cursor()
-        # cur.execute(
-        #    f'SELECT ISIN, Quantity, "Trade Date"  FROM trade_report LIMIT 2'
-        # )
-        rows = inf.TradeReport.get_day_zero(db_.conn)
+        tr_table = db_.create_trade_report_table()
+        rows = tr_table.get_day_zero(db_.conn)
         print(
             f"\ntest_create_trade_report_table_results: {list(map(str,rows))}"
         )
@@ -77,10 +69,8 @@ def test_create_trade_report_table() -> bool:
 def test_create_bank_statment_table() -> bool:
     try:
         db_ = db.Database()
-        db_.create_bank_statment_table()
-        # cur = db_.conn.cursor()
-        # cur.execute(f"SELECT * FROM bank_statement LIMIT 2")
-        rows = inf.BankStatement.get_day_zero(db_.conn)
+        bnk_table = db_.create_bank_statment_table()
+        rows = bnk_table.get_day_zero(db_.conn)
         print(
             f"\ntest_create_bank_statement_table_results: {list(map(str,rows))}"
         )
@@ -94,8 +84,8 @@ def test_create_bank_statment_table() -> bool:
 def test_create_portfolio_table() -> bool:
     try:
         db_ = db.Database()
-        trade_nav = db_.create_portfolio_table()
-        rows = inf.Portfolio.get_day_zero(db_.conn)
+        pft_table = db_.create_portfolio_table()
+        rows = pft_table.get_day_zero(db_.conn)
         print(
             f"\ntest_create_portfolio_nav_table_results: {list(map(str, rows))}"
         )
