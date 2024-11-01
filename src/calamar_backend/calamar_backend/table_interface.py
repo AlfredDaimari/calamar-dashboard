@@ -4,8 +4,8 @@ Utility Table Classes
     - BankStatement: zerodha bank statement table
     - Portfolio: manage portfolio report table
     - Index: index table for nse index
-    - IndexNav: index nav table 
-    - PortfolioNav: portfolio nav table 
+    - IndexNav: index nav table
+    - PortfolioNav: portfolio nav table
 """
 
 import datetime
@@ -16,13 +16,10 @@ import os
 import abc
 
 import calamar_backend.time as time
-import calamar_backend.maps as mp
-import calamar_backend.errors as er
 import calamar_backend.table_row_interface as inf_row
 
 from calamar_backend.price import download_price as yf_get_price
-
-mp_ = mp.TickerMap()
+from calamar_backend.maps import calamar_ticker_map
 
 
 class Table(abc.ABC):
@@ -46,7 +43,9 @@ class Table(abc.ABC):
 
     def create_index(self, conn: sqlite3.Connection) -> None:
         cursor = conn.cursor()
-        cursor.execute(f"CREATE INDEX {self._table}_idx ON {self._table}(Date)")
+        cursor.execute(
+            f"CREATE INDEX {self._table}_idx ON {self._table} (Date)"
+        )
 
     def insert(self, conn: sqlite3.Connection, row: inf_row.Row) -> None:
         cursor = conn.cursor()
@@ -84,8 +83,18 @@ class Table(abc.ABC):
         self._delete_table(conn)
         self._create_table(conn)
 
-    def get_day_zero_query(self) -> str:
+    def __get_day_zero_query(self) -> str:
         return f"SELECT * FROM {self._table} LIMIT 1"
+
+    def get_day_zero_date(self, conn: sqlite3.Connection) -> datetime.datetime:
+        cursor = conn.cursor()
+        cursor.execute(self.__get_day_zero_query())
+
+        row_zero: tuple[str, ...] = cursor.fetchall()[0]
+        day_zero_str = row_zero[0]
+        day_zero = time.convert_date_strf_to_strp(day_zero_str)
+
+        return day_zero
 
     def get_day_zero(self, conn: sqlite3.Connection):
         """
@@ -94,13 +103,8 @@ class Table(abc.ABC):
         Returns:
             list[cls]
         """
+        day_zero = self.get_day_zero_date(conn)
         cursor = conn.cursor()
-        cursor.execute(self.get_day_zero_query())
-
-        row_zero: tuple[str, ...] = cursor.fetchall()[0]
-        day_zero_str = row_zero[0]
-        day_zero = time.convert_date_strf_to_strp(day_zero_str)
-
         cursor.execute(self.get_query(day_zero))
         rows: list[tuple[str, ...]] = cursor.fetchall()
         return list(map(self.create_table_rows, rows))
@@ -230,7 +234,7 @@ class Index(Table):
         """
         start, end needs to be set only when you want to create a table
         """
-        self.yf_ticker = mp_.get(ticker)
+        self.yf_ticker = calamar_ticker_map.get(ticker)
         self.start = start
         self.end = end
         self._table = f"{ticker}_price"
@@ -249,7 +253,8 @@ class Index(Table):
     def _create_table(self, conn: sqlite3.Connection) -> None:
         if (self.start == "") or (self.end == ""):
             raise Exception(
-                f"{datetime.datetime.now()}:Index._create_table: start, end not set"
+                f"{datetime.datetime.now()}:Index._create_table: start, end "
+                "not set"
             )
 
         df: pd.DataFrame = yf_get_price(self.yf_ticker, self.start, self.end)
@@ -331,7 +336,10 @@ class Portfolio(Table):
             else:
                 self.portfolio[trade.ticker].quantity -= trade.quantity
         else:
-            trade.quantity = trade.quantity if trade.is_buy else -trade.quantity
+            if trade.is_buy:
+                trade.quantity = trade.quantity
+            else:
+                trade.quantity = -trade.quantity
             self.portfolio[trade.ticker] = trade
 
     def remove_ne_quantity(self) -> None:

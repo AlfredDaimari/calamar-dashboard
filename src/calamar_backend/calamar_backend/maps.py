@@ -33,3 +33,6 @@ class TickerMap:
                 f"- {ticker} not defined in file {self.map_yaml}"
             )
         return yticker
+
+
+calamar_ticker_map = TickerMap()

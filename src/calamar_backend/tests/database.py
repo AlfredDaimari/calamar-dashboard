@@ -11,14 +11,15 @@ end = "2024-10-25"
 def test_create_index_table() -> bool:
     try:
         db_ = db.Database()
-        index_table = db_.create_index_table(ticker, start, end)
+        db_.create_index_table(ticker, start, end)
         rows = []
-        rows += index_table.get(
-            db_.conn, time.convert_date_strf_to_strp("2019-12-12 00:00:00")
-        )
-        rows += index_table.get(
-            db_.conn, time.convert_date_strf_to_strp("2020-12-15 00:00:00")
-        )
+        if db_.index_table is not None:
+            rows += db_.index_table.get(
+                db_.conn, time.convert_date_strf_to_strp("2019-12-12 00:00:00")
+            )
+            rows += db_.index_table.get(
+                db_.conn, time.convert_date_strf_to_strp("2020-12-15 00:00:00")
+            )
         print(f"\ntest_create_index_table_results: {list(map(str, rows))}")
 
     except Exception as e:
@@ -33,14 +34,15 @@ def test_create_index_nav_table() -> bool:
 
     try:
         db_ = db.Database()
-        index_nav_table = db_.create_index_nav_table(ticker)
+        db_.create_index_nav_table(ticker)
         rows = []
-        rows += index_nav_table.get(
-            db_.conn, time.convert_date_strf_to_strp("2019-12-12 00:00:00")
-        )
-        rows += index_nav_table.get(
-            db_.conn, time.convert_date_strf_to_strp("2020-12-15 00:00:00")
-        )
+        if db_.index_nav_table is not None:
+            rows += db_.index_nav_table.get(
+                db_.conn, time.convert_date_strf_to_strp("2019-12-12 00:00:00")
+            )
+            rows += db_.index_nav_table.get(
+                db_.conn, time.convert_date_strf_to_strp("2020-12-15 00:00:00")
+            )
         print(f"\ntest_create_index_nav_table_results: {list(map(str, rows))}")
 
     except Exception as e:
@@ -53,8 +55,8 @@ def test_create_index_nav_table() -> bool:
 def test_create_trade_report_table() -> bool:
     try:
         db_ = db.Database()
-        tr_table = db_.create_trade_report_table()
-        rows = tr_table.get_day_zero(db_.conn)
+        db_.create_trade_report_table()
+        rows = db_.tr_table.get_day_zero(db_.conn)
         print(
             f"\ntest_create_trade_report_table_results: {list(map(str,rows))}"
         )
@@ -69,8 +71,8 @@ def test_create_trade_report_table() -> bool:
 def test_create_bank_statment_table() -> bool:
     try:
         db_ = db.Database()
-        bnk_table = db_.create_bank_statment_table()
-        rows = bnk_table.get_day_zero(db_.conn)
+        db_.create_bank_statment_table()
+        rows = db_.bnk_table.get_day_zero(db_.conn)
         print(
             f"\ntest_create_bank_statement_table_results: {list(map(str,rows))}"
         )
@@ -84,8 +86,8 @@ def test_create_bank_statment_table() -> bool:
 def test_create_portfolio_table() -> bool:
     try:
         db_ = db.Database()
-        pft_table = db_.create_portfolio_table()
-        rows = pft_table.get_day_zero(db_.conn)
+        db_.create_portfolio_table()
+        rows = db_.pft_table.get_day_zero(db_.conn)
         print(
             f"\ntest_create_portfolio_nav_table_results: {list(map(str, rows))}"
         )
