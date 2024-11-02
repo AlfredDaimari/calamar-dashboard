@@ -11,10 +11,12 @@ import abc
 import pandas as pd
 import typing
 import sqlite3
+import datetime
 
 import calamar_backend.time as time
 import calamar_backend.errors as er
 import calamar_backend.table_interface as inf_tb
+from calamar_backend.database_csv import db_csv
 
 
 class Row(abc.ABC):
@@ -237,3 +239,37 @@ class PortfolioRow(Row):
             f"(Date:{self.date} ticker:{self.ticker} "
             f"quantity:{self.quantity})"
         )
+
+
+class PortfolioNAVRow(Row):
+    def __init__(self, date: str, nav: float = 0):
+        self.date = time.convert_date_strf_to_strp(date)
+        self.nav = nav
+
+    def insert_query(self, table: str) -> str:
+        return (
+            f"INSERT INTO {table} (Date, nav) VALUES "
+            f"('{time.convert_date_to_strf(self.date)}', {self.nav})"
+        )
+
+    def __str__(self):
+        return f"(Date:{self.date}) nav:{self.nav}"
+
+    def add_to_nav(
+        self,
+        portfolio_sec: PortfolioRow,
+    ) -> None:
+        isin = portfolio_sec.isin
+        ticker = portfolio_sec.ticker
+
+        yf_pd_series = db_csv.read(isin, self.date, ticker)[-1]
+
+        if isinstance(yf_pd_series, pd.Series):
+            price = yf_pd_series["Close"]
+            if isinstance(price, float):
+                self.nav += price * portfolio_sec.quantity
+        else:
+            raise Exception(
+                f"{str(datetime.datetime.now())}: PortfolioNAV."
+                "add_to_portfolio_nav"
+            )

@@ -26,7 +26,7 @@ class Table(abc.ABC):
     _table = None
 
     @abc.abstractmethod
-    def get_query(cls, date: datetime.datetime) -> str:
+    def get_query(self, date: datetime.datetime) -> str:
         """
         Query table by date
         Note: first column (position 0) should contain date string
@@ -34,7 +34,7 @@ class Table(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def create_table_rows(cls, row):
+    def create_table_rows(self, row):
         """
         Returns:
             cls: an object of the table class
@@ -71,7 +71,7 @@ class Table(abc.ABC):
         conn.commit()
 
     @abc.abstractmethod
-    def _create_table(cls, conn: sqlite3.Connection) -> None:
+    def _create_table(self, conn: sqlite3.Connection) -> None:
         raise NotImplementedError
 
     def _delete_table(self, conn: sqlite3.Connection) -> None:
@@ -173,9 +173,14 @@ class BankStatement(Table):
             inf_row.BankStatementRow.is_valid_bank_statement, axis=1
         )
         # deal with error code later
-        df = df[df["ind_txn"]]
-        df = df.drop("ind_txn", axis=1)
-
+        tdf = df[df["ind_txn"]]
+        if isinstance(tdf, pd.DataFrame):
+            df = tdf.drop("ind_txn", axis=1)
+        else:
+            raise Exception(
+                f"{str(datetime.datetime.now())}: "
+                "BankStatement.__clean_zerodha_bank..."
+            )
         return df
 
 
@@ -193,7 +198,7 @@ class TradeReport(Table):
 
     def get_query(self, date: datetime.datetime) -> str:
         return (
-            'SELECT Date, Symbol, ISIN, "Trade Type", '
+            "SELECT Date, symbol, isin, trade_type, "
             f"quantity FROM {self._table} WHERE Date = "
             f"""'{time.convert_date_to_strf(date)}'"""
         )
@@ -211,18 +216,39 @@ class TradeReport(Table):
         df = df.dropna()
 
         # set date as index
-        df["Trade Date"] = pd.to_datetime(df["Trade Date"])
-        df = df.rename(columns={"Trade Date": "Date"})
+        df["trade_date"] = pd.to_datetime(df["trade_date"])
+        df = df.rename(columns={"trade_date": "Date"})
         df = df.set_index("Date")
         df = df.sort_values(by="Date")
 
-        df.to_sql(
-            self._table,
-            conn,
-            index=True,
-            if_exists="replace",
-            index_label="Date",
-        )
+        """
+        Read problematic securites from prob file and remove them from trading
+        """
+        prob_file = os.getenv("ZERODHA_PROBLEM_SEC")
+        if prob_file is None:
+            raise Exception(
+                f"{str(datetime.datetime.now())}:"
+                "'ZERODHA_PROBLEM_SEC' env not set"
+            )
+
+        with open(prob_file, "r") as file:
+            secs = list(file)
+            for sec in secs:
+                sec = sec.replace("\n", "")
+                df = df[df["symbol"] != sec]
+
+        if isinstance(df, pd.DataFrame):
+            df.to_sql(
+                self._table,
+                conn,
+                index=True,
+                if_exists="replace",
+                index_label="Date",
+            )
+        else:
+            raise Exception(
+                f"{str(datetime.datetime.now())}:portfolio._create_table"
+            )
 
 
 class Index(Table):
@@ -372,4 +398,23 @@ class Portfolio(Table):
 
 
 class PortfolioNAV(Table):
-    pass
+    def __init__(self):
+        self._table = "portfolio_nav"
+
+    def _create_table(self, conn: sqlite3.Connection) -> None:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""CREATE TABLE {self._table} """ '("Date" DATE, "nav" REAL)'
+        )
+        conn.commit()
+
+    def get_query(self, date: datetime.datetime) -> str:
+        return (
+            f"SELECT * FROM {self._table} "
+            f"WHERE Date = '{time.convert_date_to_strf(date)}'"
+        )
+
+    def create_table_rows(
+        self, row: tuple[str, float]
+    ) -> inf_row.PortfolioNAVRow:
+        return inf_row.PortfolioNAVRow(*row)

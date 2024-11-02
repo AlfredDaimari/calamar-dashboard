@@ -6,14 +6,13 @@ CSV Database
         - read from yahoo finance
 """
 import datetime
-import typing
 import pandas as pd
 import os
 import pathlib
-from calamar_backend.price import download_price as yf_download_price
-from calamar_backend.maps import TickerMap
+
 import calamar_backend.time as time
-from calamar_backend.errors import DayClosePriceNotFoundError
+from calamar_backend.maps import calamar_ticker_map
+from calamar_backend.price import download_price as yf_download_price
 
 
 class DatabaseCSV:
@@ -22,7 +21,6 @@ class DatabaseCSV:
     """
 
     def __init__(self, mem_slots: int) -> None:
-        self.map = TickerMap()  # make a global ticker map variable
         self.csv_dir_path = os.getenv("CALAMAR_CSV_DB")
 
         if self.csv_dir_path is None:
@@ -37,6 +35,13 @@ class DatabaseCSV:
         return f"{self.csv_dir_path}/{ticker_fy[0]}_{ticker_fy[-1]}"
 
     def __file_exists(self, ticker_fy: tuple[str, int]) -> bool:
+        """
+        - Checks if file exists in csv database
+
+        TODO:
+            - check using ticker
+            - check using map
+        """
         csv_file = pathlib.Path(self.get_csv_file_path(ticker_fy))
         return csv_file.is_file()
 
@@ -103,11 +108,12 @@ class DatabaseCSV:
     def __read_df_from_yf(self, ticker_fy: tuple[str, int]) -> pd.DataFrame:
         """
         Read data from yahoo finance
+        ticker :parameter: unique isin number
         """
         [ticker, fy] = ticker_fy
         [start, end] = time.date_in_fy_start_end(fy)
 
-        df = yf_download_price(self.map.get(ticker), start, end)
+        df = yf_download_price(ticker, start, end)
         df.to_csv(
             self.get_csv_file_path(ticker_fy),
             index=True,
@@ -118,7 +124,7 @@ class DatabaseCSV:
         return df
 
     def read(
-        self, ticker: str, date: datetime.datetime
+        self, isin: str, date: datetime.datetime, ticker: str = ""
     ) -> tuple[int, pd.Series | None]:
         """
         - get fy year
@@ -134,29 +140,73 @@ class DatabaseCSV:
 
         loc: int = -1  # location of DF in LRU
         fy = time.date_fy(date)
-        ret: pd.Series
+        ret = None
+        df = None
+        dt = ""
+        count = 10
+        read_ticker = False
+        use_map = False
 
-        if self.__file_exists((ticker, fy)):
-            loc = self.__lru_find_dataframe((ticker, fy))
+        # loop until price is found
+        while True:
+            try:
+                if self.__file_exists((isin, fy)):
+                    loc = self.__lru_find_dataframe((isin, fy))
 
-            if loc != -1:
-                df = self.__read_df_from_lru((ticker, fy), loc)
-            else:
-                df = self.__read_df_from_csv_dir((ticker, fy))
-        else:
-            df = self.__read_df_from_yf((ticker, fy))
+                    if loc != -1:
+                        df = self.__read_df_from_lru((isin, fy), loc)
+                    else:
+                        df = self.__read_df_from_csv_dir((isin, fy))
+                else:
+                    df = self.__read_df_from_yf((isin, fy))
 
-        try:
-            ret = df.loc[time.convert_date_to_strf(date)]
+                dt = time.convert_date_to_strf(date)
+                ret = df.loc[dt]
+                break
 
-        except KeyError:
-            raise DayClosePriceNotFoundError
+            except KeyError:
+                # go forward by one date (limit of upto 7)
+                if count <= 0:
+                    raise Exception(
+                        f"{str(datetime.datetime.now())}: "
+                        "something went wrong, can't get "
+                        f"price for {str(date)} {ticker}"
+                    )
 
-        except Exception as e:
-            raise Exception(
-                f"{datetime.datetime.now()}: "
-                f"db_csv.read({ticker},{time.convert_date_to_strf(date)}): "
-                f"something went wrong - {e}!"
-            )
+                count -= 1
+                date += datetime.timedelta(days=1)
+                fy = time.date_fy(date)
+                continue
+
+            except Exception:
+                # using alternative ticker to read
+                if not read_ticker:
+                    print(
+                        f"db_csv.read({ticker},"
+                        f"something went wrong, now downloading using ticker"
+                    )
+                    read_ticker = True
+                    isin = ticker + ".NS"
+                    continue
+
+                # using alternative manual map to read
+                elif not use_map:
+                    print(
+                        f"db_csv.read({isin}), something went wrong, now "
+                        f"downloading using manual map"
+                    )
+                    use_map = True
+                    isin = calamar_ticker_map.get(ticker)
+                    continue
+
+                else:
+                    raise Exception(
+                        f"db_csv.read({isin},{ticker}): something"
+                        "went wrong! cannot read with isin and "
+                        "ticker"
+                    )
 
         return (loc, ret)
+
+
+db_csv = DatabaseCSV(50)

@@ -22,12 +22,16 @@ import calamar_backend.time as time
 from calamar_backend.table_interface import (
     BankStatement as BNK,
     IndexNAV,
+    PortfolioNAV,
     TradeReport,
     Index,
     Portfolio,
 )
 from calamar_backend.table_row_interface import (
     IndexNAVRow,
+    IndexRow,
+    PortfolioNAVRow,
+    PortfolioRow,
     TradeReportRow,
 )
 from calamar_backend import errors
@@ -53,16 +57,17 @@ class Database:
         self.bnk_table = BNK()
         self.tr_table = TradeReport()
         self.pft_table = Portfolio()
+        self.pft_nav_table = PortfolioNAV()
         self.index_nav_table: typing.Optional[IndexNAV] = None
         self.index_table: typing.Optional[Index] = None
 
-    def change_index_table(self, ticker: str, start="", end=""):
+    def change_index_table(self, ticker: str, start="", end="") -> None:
         self.index_table = Index(ticker, start, end)
 
-    def change_index_nav_table(self, ticker: str):
+    def change_index_nav_table(self, ticker: str) -> None:
         self.index_nav_table = IndexNAV(ticker)
 
-    def create_index_table(self, ticker: str, start: str, end: str):
+    def create_index_table(self, ticker: str, start: str, end: str) -> None:
         """
         :parameter ticker: zerodha ticker
         :parameter start: start date for query
@@ -76,7 +81,7 @@ class Database:
     def create_bank_statment_table(self) -> None:
         self.bnk_table.create_new_table(self.conn)
 
-    def create_trade_report_table(self):
+    def create_trade_report_table(self) -> None:
         self.tr_table.create_new_table(self.conn)
 
     def create_index_nav_table(self, ticker: str) -> None:
@@ -108,11 +113,10 @@ class Database:
                 start_date, cur_date, row_index_nav
             )
 
-    def create_portfolio_table(self):
+    def create_portfolio_table(self) -> None:
         """
         - Create portfolio report table
-        - Write to portfolio report table
-        - Remove problematic securities
+        - Write to portfolio report table using interval
         """
         cur_date = time.get_current_date()
         start_date = None
@@ -137,9 +141,38 @@ class Database:
         # add trades to portfolio from day 1 to current date
         self.__add_interval_trades_to_portfolio(start_date, cur_date)
 
+    def create_portfolio_nav_table(self) -> None:
+        """
+        - Create portfolio nav table
+        - Write to portfolio nav table using interval
+        """
+
+        cur_date = time.get_current_date()
+        self.pft_nav_table.create_new_table(self.conn)
+        self.pft_nav_table.create_index(self.conn)
+
+        # day zero portfolio sec
+        day_zero = self.pft_table.get_day_zero_date(self.conn)
+        pft_secs: list[PortfolioRow] = self.pft_table.get(self.conn, day_zero)
+
+        portfolio_nav_row = PortfolioNAVRow(
+            time.convert_date_to_strf(day_zero), 0
+        )
+
+        # add to nav on day zero
+        for sec in pft_secs:
+            portfolio_nav_row.add_to_nav(sec)
+        self.pft_nav_table.insert(self.conn, portfolio_nav_row)
+
+        start_date = day_zero + datetime.timedelta(days=1)
+        # add nav rows using interval
+        self.__add_interval_nav_to_portfolio_nav(
+            start_date, cur_date, portfolio_nav_row
+        )
+
     def __add_day_zero_bnk_statements_to_index_nav(
         self, row_index_nav: IndexNAVRow
-    ):
+    ) -> None:
         """
         Add day zero bank statements as amount invested to index nav table
         row_index_nav :parameter: A dummy initialized row object which can be
@@ -147,7 +180,7 @@ class Database:
         """
         if self.index_nav_table is None:
             raise Exception(
-                f"{datetime.datetime.now()}: " "index_nav_table not set"
+                f"{str(datetime.datetime.now())}: " "index_nav_table not set"
             )
 
         else:
@@ -211,7 +244,7 @@ class Database:
                         self.index_nav_table.insert(self.conn, row_index_nav)
                     else:
                         raise Exception(
-                            f"{datetime.datetime.now()}: index nav "
+                            f"{str(datetime.datetime.now())}: index nav "
                             "table not set"
                         )
 
@@ -227,9 +260,9 @@ class Database:
                     else:
                         continue
 
-                except Exception as e: 
+                except Exception as e:
                     raise Exception(
-                        f"{datetime.datetime.now()}:"
+                        f"{str(datetime.datetime.now())}:"
                         "db:create_index_nav_table: "
                         f"something went really wrong! - {e}"
                     )
@@ -240,13 +273,14 @@ class Database:
 
     def __add_interval_trades_to_portfolio(
         self, start_date: datetime.datetime, last_date: datetime.datetime
-    ):
+    ) -> None:
         """
         Add trades in an interval to portfolio table
         """
         with tqdm.tqdm(
             total=(last_date - start_date).days,
             desc="creating portfolio report",
+            leave=False,
         ) as pbar:
             """
             - get trades on date
@@ -259,7 +293,48 @@ class Database:
                     self.pft_table.add_to_portfolio(trade)
 
                 # write to table
-                self.pft_table.insert_all(
-                    self.conn, time.convert_date_to_strf(day)
-                )
+                # only write to table if prices exist on that day
+                self.change_index_table("nifty50")
+                if self.index_table is not None:
+                    rows: list[IndexRow] = self.index_table.get(self.conn, day)
+
+                    if len(rows) > 0:
+                        self.pft_table.insert_all(
+                            self.conn, time.convert_date_to_strf(day)
+                        )
+
+                    pbar.update(1)
+
+    def __add_interval_nav_to_portfolio_nav(
+        self,
+        start_date: datetime.datetime,
+        last_date: datetime.datetime,
+        pft_nav_row: PortfolioNAVRow,
+    ) -> None:
+        """
+        Calculate net asset value of portfolio in an interval
+        """
+
+        with tqdm.tqdm(
+            total=(last_date - start_date).days,
+            desc="create portfolio nav",
+            leave=False,
+        ) as pbar:
+            """
+            - get portfolio on date
+            - add securities to the nav
+            """
+            for day in time.range_date(start_date, last_date):
+                psecs: list[PortfolioRow] = self.pft_table.get(self.conn, day)
+
+                # reset for the new day
+                pft_nav_row.date = day
+                pft_nav_row.nav = 0
+
+                for sec in psecs:
+                    pft_nav_row.add_to_nav(sec)
+
+                if pft_nav_row.nav > 0:  # only add when nav has positive value
+                    self.pft_nav_table.insert(self.conn, pft_nav_row)
+
                 pbar.update(1)

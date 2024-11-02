@@ -57,12 +57,17 @@ def date_fy(date: datetime.datetime) -> int:
 def date_fy_start_end(date: datetime.datetime) -> tuple[str, str]:
     """
     Returns the start and end date of financial year
+
+    Note: taking two extra days to account for errors
     """
     if date.month < 4:
-        return (f"{date.year - 1}-04-01", f"{date.year}-03-31")
+        return (f"{date.year - 1}-04-01", f"{date.year}-04-02")
     else:
-        return (f"{date.year}-04-01", f"{date.year + 1}-3-31")
+        return (f"{date.year}-04-01", f"{date.year + 1}-04-02")
 
 
 def date_in_fy_start_end(fy: int) -> tuple[str, str]:
-    return (f"{fy-1}-04-01", f"{fy}-03-31")
+    """
+    Note: taking two extra days to account for errors
+    """
+    return (f"{fy-1}-03-31", f"{fy}-04-02")

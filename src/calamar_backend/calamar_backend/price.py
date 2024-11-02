@@ -9,13 +9,20 @@ def download_price(ticker: str, start: str, end: str) -> pd.DataFrame:
     """
     :param ticker: security ticker (must be present in yahoo finance)
     :param csv_file: file to save the price information
-    :param start: starting date
+    :param start: starting date (YYYY-MM-DD)
     :param end: ending date
     """
     print(
         f"{str(datetime.datetime.now())}: "
         f"downloading {ticker} from yahoo finance"
     )
+
+    # set minimum date
+    cur_date = time.get_current_date()
+    end_date = datetime.datetime.strptime(end, "%Y-%m-%d")
+    final_date = min(cur_date, end_date)
+    end = final_date.strftime("%Y-%m-%d")
+
     df: pd.DataFrame = yf.download(ticker, start=start, end=end)
 
     # reset multi-level index

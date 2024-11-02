@@ -5,13 +5,14 @@ import calamar_backend.time as time
 
 ticker = "nifty50"
 start = "2019-12-10"
-end = "2024-10-25"
+end = "2024-11-01"
 
 
 def test_create_index_table() -> bool:
     try:
         db_ = db.Database()
-        db_.create_index_table(ticker, start, end)
+        #db_.create_index_table(ticker, start, end)
+        db_.change_index_table(ticker)
         rows = []
         if db_.index_table is not None:
             rows += db_.index_table.get(
@@ -88,10 +89,23 @@ def test_create_portfolio_table() -> bool:
         db_ = db.Database()
         db_.create_portfolio_table()
         rows = db_.pft_table.get_day_zero(db_.conn)
-        print(
-            f"\ntest_create_portfolio_nav_table_results: {list(map(str, rows))}"
-        )
+        print(f"\ntest_create_portfolio_table_results: {list(map(str, rows))}")
 
+    except Exception as e:
+        print(e)
+        return False
+
+    return True
+
+
+def test_create_portfolio_nav_table() -> bool:
+    try:
+        db_ = db.Database()
+        db_.create_portfolio_nav_table()
+        rows = db_.pft_nav_table.get_day_zero(db_.conn)
+        print(
+            f"\ntest_create_portfolio_nav_table_results:{list(map(str, rows))}"
+        )
     except Exception as e:
         print(e)
         return False
@@ -114,7 +128,8 @@ def main():
     tst_create_trade_report_table: bool = test_create_trade_report_table()
     tst_create_bank_statement_table: bool = test_create_bank_statment_table()
     tst_create_index_nav_table: bool = test_create_index_nav_table()
-    tst_create_portfolio_nav_table: bool = test_create_portfolio_table()
+    tst_create_portfolio_table: bool = test_create_portfolio_table()
+    tst_create_portfolio_nav_table: bool = test_create_portfolio_nav_table()
     end_time = timeit.default_timer()
     elapsed_time = end_time - start_time
 
@@ -127,8 +142,9 @@ def main():
         f"test_create_bank_statement_table: {emoji(tst_create_bank_statement_table)}"
     )
     print(f"test_create_index_nav_table: {emoji(tst_create_index_nav_table)}")
+    print(f"test_create_portfolio_table: {emoji(tst_create_portfolio_table)}")
     print(
-        f"test_create_portfolio_table: {emoji(tst_create_portfolio_nav_table)}"
+        f"test_create_portfolio_nav_table: {emoji(tst_create_portfolio_nav_table)}"
     )
     print("\n")
     print(f"Total elapsed time for database tests: {elapsed_time}")
