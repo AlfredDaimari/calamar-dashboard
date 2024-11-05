@@ -1,8 +1,15 @@
 # file that consists of getting price functions using the yahoo finance api
+import logging
+
 import yfinance as yf
 import pandas as pd
 import datetime
 import calamar_backend.time as time
+
+# disable logging in yahoo finance
+logger = logging.getLogger("yfinance")
+logger.disabled = True
+logger.propagate = False
 
 
 def download_price(ticker: str, start: str, end: str) -> pd.DataFrame:
@@ -23,7 +30,14 @@ def download_price(ticker: str, start: str, end: str) -> pd.DataFrame:
     final_date = min(cur_date, end_date)
     end = final_date.strftime("%Y-%m-%d")
 
-    df: pd.DataFrame = yf.download(ticker, start=start, end=end, progress=False)
+    df: pd.DataFrame = yf.download(ticker, start, end, progress=False)
+
+    if len(df) == 0:
+        print(
+            f"{str(datetime.datetime.now())}: "
+            f"{ticker} download from yahoo finance failed"
+        )
+        return df
 
     # reset multi-level index
     df = df.reset_index()

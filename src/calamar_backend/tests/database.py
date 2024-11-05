@@ -74,7 +74,8 @@ def test_create_bank_statment_table() -> bool:
         db_.create_bank_statment_table()
         rows = db_.bnk_table.get_day_zero(db_.conn)
         print(
-            f"\ntest_create_bank_statement_table_results: {list(map(str,rows))}"
+            f"\ntest_create_bank_statement_table_results: "
+            f"{list(map(str,rows))}"
         )
 
     except Exception as e:
@@ -135,15 +136,18 @@ def main():
     print("\n\n==== Database test results ====")
     print(f"test_create_index_table: {emoji(tst_create_index_table)}")
     print(
-        f"test_create_trade_report_table: {emoji(tst_create_trade_report_table)}"
+        "test_create_trade_report_table: "
+        f"{emoji(tst_create_trade_report_table)}"
     )
     print(
-        f"test_create_bank_statement_table: {emoji(tst_create_bank_statement_table)}"
+        "test_create_bank_statement_table: "
+        f"{emoji(tst_create_bank_statement_table)}"
     )
     print(f"test_create_index_nav_table: {emoji(tst_create_index_nav_table)}")
     print(f"test_create_portfolio_table: {emoji(tst_create_portfolio_table)}")
     print(
-        f"test_create_portfolio_nav_table: {emoji(tst_create_portfolio_nav_table)}"
+        "test_create_portfolio_nav_table: "
+        f"{emoji(tst_create_portfolio_nav_table)}"
     )
     print("\n")
     print(f"Total elapsed time for database tests: {elapsed_time}")

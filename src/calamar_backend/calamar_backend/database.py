@@ -5,7 +5,16 @@ Database utils functions:
     - create bank statement table
     - create index nav table
     - create trade_report table
-    - create trade nav table
+    - create portfolio table
+    - create portfolio nav table
+
+    TODO:
+    - create sharpe ratio table
+    - create sortino ratio table
+    - create omega ratio table
+    - create calamar ratio table
+    - create sharpe ratio optimization table (impacts over 6 months)
+    - create omega ratio optimization table (impacts over 6 months)
 
     Update:
     - update index table

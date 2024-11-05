@@ -3,6 +3,8 @@ import yaml
 import datetime
 import os
 
+import calamar_backend.errors as er
+
 
 class TickerMap:
     """
@@ -28,10 +30,8 @@ class TickerMap:
         try:
             yticker: str = self.map[ticker]
         except KeyError:
-            raise Exception(
-                f"{str(datetime.datetime.now())}: zerodha ticker "
-                f"- {ticker} not defined in file {self.map_yaml}"
-            )
+            raise er.NoTickerMappingError
+
         return yticker
 
 

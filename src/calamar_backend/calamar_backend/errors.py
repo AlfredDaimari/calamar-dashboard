@@ -6,6 +6,11 @@ class DayClosePriceNotFoundError(Exception):
         Exception.__init__(self)
 
 
+class NoTickerMappingError(Exception):
+    def __init__(self):
+        Exception.__init__(self)
+
+
 class DayBankStatementNotFoundError(Exception):
     def __init__(self):
         Exception.__init__(self)

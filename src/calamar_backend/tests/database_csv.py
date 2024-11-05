@@ -1,6 +1,7 @@
 import timeit
 import os
 import calamar_backend.time as time
+import calamar_backend.utils as ut
 from calamar_backend import database_csv as db
 
 
@@ -19,20 +20,18 @@ def test_read() -> bool:
         # removing files for better tests
         for key in dates:
             fy: int = time.date_fy(dates[key])
-            file_path = db_.get_csv_file_path(("RELIANCE.NS", fy))
+            file_path = db_.get_csv_file_path("RELIANCE.NS", fy)
 
             if os.path.exists(file_path):
                 os.remove(file_path)
 
         # reading files
-        output = []
         dates_keys = list(dates.keys())
         for i in range(len(dates_keys)):
-            [loc, serie] = db_.read(isin, dates[dates_keys[i]], ticker)
-            output.append(serie)
+            [loc, _] = db_.read(isin, dates[dates_keys[i]], ticker)
             assert loc == -1  # all files show be downloaded from yf
 
-        [loc, _] = db_.read(isin, dates["d21"], ticker)
+        [loc, output] = db_.read(isin, dates["d21"], ticker)
         assert loc == 2
         [loc, _] = db_.read(isin, dates["d24"], ticker)
         assert loc == -1
