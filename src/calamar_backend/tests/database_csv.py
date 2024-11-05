@@ -6,7 +6,8 @@ from calamar_backend import database_csv as db
 
 def test_read() -> bool:
     try:
-        ticker = "reliance"
+        ticker = "RELIANCE"
+        isin = "IFK345"
         db_ = db.DatabaseCSV(3)
         dates = {
             "d24": time.convert_date_strf_to_strp("2023-10-05 00:00:00"),
@@ -18,7 +19,7 @@ def test_read() -> bool:
         # removing files for better tests
         for key in dates:
             fy: int = time.date_fy(dates[key])
-            file_path = db_.get_csv_file_path((ticker, fy))
+            file_path = db_.get_csv_file_path(("RELIANCE.NS", fy))
 
             if os.path.exists(file_path):
                 os.remove(file_path)
@@ -27,13 +28,13 @@ def test_read() -> bool:
         output = []
         dates_keys = list(dates.keys())
         for i in range(len(dates_keys)):
-            [loc, serie] = db_.read(ticker, dates[dates_keys[i]])
+            [loc, serie] = db_.read(isin, dates[dates_keys[i]], ticker)
             output.append(serie)
             assert loc == -1  # all files show be downloaded from yf
 
-        [loc, _] = db_.read(ticker, dates["d21"])
+        [loc, _] = db_.read(isin, dates["d21"], ticker)
         assert loc == 2
-        [loc, _] = db_.read(ticker, dates["d24"])
+        [loc, _] = db_.read(isin, dates["d24"], ticker)
         assert loc == -1
 
         print(f"\ntest_read_results:{output}")

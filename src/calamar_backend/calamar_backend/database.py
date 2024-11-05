@@ -67,13 +67,16 @@ class Database:
     def change_index_nav_table(self, ticker: str) -> None:
         self.index_nav_table = IndexNAV(ticker)
 
-    def create_index_table(self, ticker: str, start: str, end: str) -> None:
+    def create_index_table(self, ticker: str, start: str) -> None:
         """
         :parameter ticker: zerodha ticker
         :parameter start: start date for query
         :parameter end: end date for query
         """
-        self.change_index_table(ticker, start, end)
+        end = time.get_current_date()
+        end_str = time.convert_date_to_strf_yf(end)
+
+        self.change_index_table(ticker, start, end_str)
 
         if self.index_table is not None:
             self.index_table.create_new_table(self.conn)

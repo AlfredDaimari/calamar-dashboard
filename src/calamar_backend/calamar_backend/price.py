@@ -23,7 +23,7 @@ def download_price(ticker: str, start: str, end: str) -> pd.DataFrame:
     final_date = min(cur_date, end_date)
     end = final_date.strftime("%Y-%m-%d")
 
-    df: pd.DataFrame = yf.download(ticker, start=start, end=end)
+    df: pd.DataFrame = yf.download(ticker, start=start, end=end, progress=False)
 
     # reset multi-level index
     df = df.reset_index()

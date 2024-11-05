@@ -5,13 +5,12 @@ import calamar_backend.time as time
 
 ticker = "nifty50"
 start = "2019-12-10"
-end = "2024-11-01"
 
 
 def test_create_index_table() -> bool:
     try:
         db_ = db.Database()
-        #db_.create_index_table(ticker, start, end)
+        db_.create_index_table(ticker, start)
         db_.change_index_table(ticker)
         rows = []
         if db_.index_table is not None:

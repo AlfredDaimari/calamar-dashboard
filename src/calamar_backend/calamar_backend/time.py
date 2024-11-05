@@ -7,7 +7,7 @@ import pandas as pd
 import typing
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-YF_DATE_FORMAT = f"{DATE_FORMAT}+00:00"
+YF_DATE_FORMAT = "%Y-%m-%d"
 
 
 def convert_date_strf_to_strp(date: str) -> datetime.datetime:
@@ -24,6 +24,10 @@ def get_current_date() -> datetime.datetime:
 
 def convert_date_to_strf(date: datetime.datetime):
     return date.strftime(DATE_FORMAT)
+
+
+def convert_date_to_strf_yf(date: datetime.datetime):
+    return date.strftime(YF_DATE_FORMAT)
 
 
 def convert_yf_date_to_strf(row) -> str:
